@@ -6,12 +6,12 @@ Example usage,
 >>> df = pd.read_csv("CSVData.csv", names=["Date","Tx", "Description", "Curr_Balance"])
 >>> account = w.account_data(df)
 
-
 import pandas as pd
 import dataframe_worker as w
 df = pd.read_csv("CSVData.csv", names=["Date","Tx", "Description", "Curr_Balance"])
 a = w.account_data(df)
 
+a.display_income_stats()
 a.display_expenditure_stats()
 """
 
@@ -29,86 +29,119 @@ import os
 
 CMAP =  plt.get_cmap('Paired')
 
+def safe_environ():
+	default_warn = "[ENVIRON SETTINGS] Environment settings not found"
+	try:
+		# grab local environ settings and attempt to read settings file
+		env = environ.Env()
+		env_file = os.path.join(os.getcwd(), "local.env")
+		env.read_env(env_file)
+		return env
+	except FileNotFoundError:
+		return sys.exit(default_warn)
+
 class account_data():
-	"""
-	IDEA: Monthly overview of the account,
+	"""*********************************************************************************
+	This is an object designed to track the user's finance account data. It aims to
+	combine multiple finance related accounts into one location for visualisation and
+	informative statistics. 
+
+	IDEA: 
+
+	Monthly overview of bank accounts,
 		* incoming review; avg., total p/mnth, total p each week, by category:
-		* outgoing overview; total, avg., by category (coffee, shopping, eating, groceries, utilities, health)
+		* outgoing overview; total, avg., by category 
+		  (coffee, shopping, eating, groceries, utilities, health)
 		* savings overview: avg., total p/mnth, total p each week
 		* opening balance : closing balance : delta
-	 """
+		* Category and subcategory visualisations to help track progress to 
+		  goals and see current position!
+		* planned/upcoming expenditure integrations (see calendar integrations)
+		* user savings goals and calculator tools for interest - fee accumulations
+
+	Paycheck integrations from ADP payroll solutions
+		* 4-week average,
+		* last received,
+		* hourly and commission based stats
+
+	Events and Calendar Integrations
+		* facebook event tracking (group specific)
+		* iCal/Google Cal integrations
+		* other??
+
+	Superannuaton Interation
+		* Review of fees
+		* Investment gains
+		* other??
+
+	*********************************************************************************
+
 	
-	# grab local environ settings and attempt to read settings file
-	
-	env = environ.Env()
-	env_file = os.path.join(os.getcwd(), "local.env")
-
-	if os.path.exists(env_file):
-		env.read_env(env_file) 
-	else: 
-		raise Exception("Local environ settings file not found, please check file location dir") 
-
-	###############################################################
-	# Categories and Search terms, TODO: Move to a settings file
-	###############################################################
-	
-	INCOME = {
-		'primary_income': env.str("primary_income"), 
-		'supplemental_income': env.str("supplemental_income"), 
-		'investment_income': env.str("investment_income")
-		}
-
-	SAVINGS_IDS = [env("CACHE_ID"), env("SAVINGS_ID")]
-
-	SUBSCRIPTIONS = env.list("SUBSCRIPTIONS")
-	UTILITIES = env.list("UTILITIES")
-	GROCERIES = env.list("GROCERIES")
-	HEALTH = env.list("HEALTH")
-	EATING_OUT = env.list("EATING_OUT")
-	COFFEE = env.list("COFFEE")
-	SHOPPING = env.list("SHOPPING")
-	ENTERTAINMENT = env.list("ENTERTAINMENT")
-
-	EXPENDITURES = { 
-		'utilities': UTILITIES,
-		'health': HEALTH,
-		'eating_out': EATING_OUT,
-		'coffee': COFFEE,
-		'subscriptions': SUBSCRIPTIONS,
-		'groceries': GROCERIES,
-	}
+	 """ 
 
 	def __init__(self, account_frame):
-	     account_frame.Description = account_frame.Description.apply(str.upper)
-	     account_frame.Date=pd.to_datetime(account_frame.Date, format="%d/%m/%Y")
+		"""NOTE: categories are defined with all caps, this distinguishes 
+		from data values for the categories of the same name.
 
-	     self.incomes = self.get_income(account_frame)
-	     self.savings = self.get_savings(account_frame)
-	     self.expenditures = self.get_expenditures(account_frame)
+		e.g. INCOME represents the category containing the subcategories
+		primary, supplemental and investment where as incomes 
+		represents the data associated per sub-category.
 
-	     # we need to maintain a list of stats for every sub category and its relevant stats dicts/lists
-	     # dynamically configure this based on cat's defined for the class above...
-	     self.curr_income_stats = []
-	     self.curr_savings_stats = []
-	     self.curr_expenditure_stats = []
+		"""
 
-	###############################################################
-	# Finders and Getters
-	###############################################################
+		# ensure safe env on account object instantiation
+		env = safe_environ()
+
+		########################################################################
+		# Categories and Search terms
+		########################################################################
+		
+		self.INCOME = {
+			'primary_income': 		env.str("primary_income"), 
+			'supplemental_income': 	env.str("supplemental_income"), 
+			'investment_income': 	env.str("investment_income"),
+		}
+
+		self.EXPENDITURES = { 
+			'utilities': 			env.list("UTILITIES"),
+			'health': 				env.list("HEALTH"),
+			'eating_out': 			env.list("EATING_OUT"),
+			'coffee': 				env.list("COFFEE"),
+			'subscriptions':		env.list("SUBSCRIPTIONS"),
+			'groceries': 			env.list("GROCERIES"),
+			'shopping':  			env.list("SHOPPING"),
+			'enterainment': 		env.list("ENTERTAINMENT"),
+		}
+
+		self.SAVINGS_IDS = [env("CACHE_ID"), env("SAVINGS_ID")]
+
+		# format the account df and perform date-time refactoring
+		account_frame.Description = account_frame.Description.apply(str.upper)
+		account_frame.Date=pd.to_datetime(account_frame.Date, format="%d/%m/%Y")
+
+		# initialize the account tracking data
+		self.incomes = self.get_income(account_frame)
+		self.savings = self.get_savings(account_frame)
+		self.expenditures = self.get_expenditures(account_frame)
+
+		# we need to maintain a list of stats for every sub category and its
+		# relevant stats dicts/lists, dynamically configure this based on cat's 
+		# defined for the class above...
+		self.curr_income_stats, self.curr_savings_stats, self.curr_expenditure_stats = ([] for i in range(3))
+
+	########################################################################
+	# Getters
+	########################################################################
 	
 	def get_income(self, acc_frame):
 		date_income, date_supplemental, date_investment = ([] for i in range(3))
+		# programatically update incomes dict and associated lists to maintain
+		incomes = dict(zip(self.INCOME.keys(), ([] for i in range(len(self.INCOME)))))
 
-		incomes = {
-			'primary_income': date_income,
-			'supplemental_income': date_supplemental,
-			'investment_income': date_investment
-			}
-
-		for key, term in self.INCOME.items():
+		for cat_key, sub_cat_list in self.INCOME.items():
 			for i in range(0, len(acc_frame)):
-				if str(term).strip() in acc_frame.Description[i]:
-					incomes[key].append([acc_frame.Date[i], acc_frame.Tx[i]])
+				if str(sub_cat_list).strip() in acc_frame.Description[i]:
+					incomes[cat_key].append([acc_frame.Date[i], acc_frame.Tx[i], sub_cat_list])
 
 		return incomes
 
@@ -125,44 +158,33 @@ class account_data():
 		return date_savings
 
 	def get_expenditures(self, acc_frame):
-		date_utilities, date_health, date_eat, date_coffee, date_subs, date_groceries = ([] for i in range(6))
-		n = len(acc_frame)
-
-		expenditures = {
-			'utilities': date_utilities,
-			'health': date_health,
-			'eating_out': date_eat,
-			'coffee': date_coffee,
-			'subscriptions': date_subs,
-			'groceries': date_groceries,
-		}
+		len_acc_frame = len(acc_frame)
+		# programatically update expenditures dict and associated lists to maintain
+		expenditures = dict(zip(self.EXPENDITURES.keys(), ([] for i in range(len(self.EXPENDITURES)))))
 
 		# iterate through cateogries
-		for key, term_list in self.EXPENDITURES.items():
-			# iterate through dataframe
-			for i in range(0, n):
-				# iterate through each sub-cat term in term_list
-				for sub_cat in term_list:
-					# print("Cat: " , sub_cat.upper(), "\nVal: ", acc_frame.Description[i])
-					
+		for cat_key, sub_cat_list in self.EXPENDITURES.items():
+			# iterate through dataframe elements
+			for i in range(0, len_acc_frame):
+				# iterate through each sub-cat term in sub_cat_list
+				for sub_cat in sub_cat_list:
 					# INSTRUMENTAL TO BS NOT FINDING CAT'S IS INCLUDING THE STRIP FUNCTION!!!
 					search_term = str(sub_cat.upper()).strip()
 					search_field = str(acc_frame.Description[i].upper())
 					idx = search_field.find(search_term)
 					
 					if idx != -1:
-						expenditures[key].append([acc_frame.Date[i], acc_frame.Tx[i], search_term])
-						#print([acc_frame.Date[i], acc_frame.Tx[i]])
-						#input()
+						expenditures[cat_key].append([acc_frame.Date[i], acc_frame.Tx[i], search_term])
+						
 		return expenditures
 
-	###############################################################
+	########################################################################
 	# Displayers and updaters
-	###############################################################
+	########################################################################
 	
 	def update_income_stats(self):
 		"""
-		this method *assumes* that if new categories are added that they are 
+		This method *assumes* that if new categories are added that they are 
 		appended, hence: previously known ordered additions of stats are in 
 		the same index positon and keyword order
 		"""
@@ -193,7 +215,7 @@ class account_data():
 	
 	def update_savings_stats(self):
 		"""
-		this method *assumes* that if new categories are added that they are 
+		This method *assumes* that if new categories are added that they are 
 		appended, hence: previously known ordered additions of stats are in 
 		the same index positon and keyword order
 		"""
@@ -225,7 +247,7 @@ class account_data():
 	
 	def update_expenditure_stats(self):
 		"""
-		this method *assumes* that if new categories are added that they are 
+		This method *assumes* that if new categories are added that they are 
 		appended, hence: previously known ordered additions of stats are in 
 		the same index positon and keyword order
 		"""
@@ -257,30 +279,20 @@ class account_data():
 	def display_income_stats(self):
 		""" Display some visualisations and print outs of the income data. """
 
-		# bar graph of income, list conversion needed as Tkinter fucks itself if it sees a numpy array...
+		# list conversion needed as Tkinter crashes on np.array() interaction
 		income_raw = list(np.array(self.incomes['primary_income'])[:,1])
-		
-		labels = []
-		for i in range(len(income_raw)):
-			labels.append("Week {}".format(i) )
 
-		width=0.35
-		x = np.arange(len(labels))
+		# income bar chart
 		fig, ax = plt.subplots()
-		rects_income = ax.bar(x, income_raw, width, label="Primary Income")
-
+		bar_chart(["Week {}".format(i) for i in range(len(income_raw))], income_raw, ax,label="Primary Income")
 		ax.set_ylabel('Income')
-		ax.set_xlabel('Category of Income')
-		ax.set_xticks(x)
-		ax.set_xticklabels(labels)
+		ax.set_xlabel('Week of Income')
 		ax.legend()
-
-		auto_label(rects_income, ax)
-		fig.tight_layout()
-		plt.show()
 
 		# later, add paycheck stuff here too - ADP does it well, do the same pie-chart
 		# and check MoneyTree, great visualisations on that too
+
+		plt.show()
 		return True
 
 	def display_savings_stats(self):
@@ -337,10 +349,9 @@ class account_data():
 		# and check MoneyTree, great visualisations on that too
 		return True
 
-
-	###############################################################
+	########################################################################
 	# Stats
-	###############################################################
+	########################################################################
 
 	def stats(self, date_tx, curr_mean=None, curr_min=None, curr_max=None, curr_std=None, curr_tot=None):
 		""" 
@@ -452,9 +463,9 @@ class account_data():
 
 		return {'running_stats': running_stats,'weekly_stats': weekly_stats,'four_week_stats': four_week_stats}
 
-###############################################################
+########################################################################
 # Utility
-###############################################################
+########################################################################
 
 def auto_label(rects, ax, font_size):
 	""" Attach a text label above each bar in *rects*, displaying its height. """
@@ -526,18 +537,19 @@ def pie_chart(label_val_dict, ax, category=None):
 
 	return
 
-def bar_chart(labels, values, ax):
+def bar_chart(labels, values, ax, label=None):
 	""" Bar chart constructor for given labels and sizes.
 	Returns the generated axis object. """
-	
+
 	width = 1
 	font_size = 12
-	
+	n_labels = len(labels)
+
 	# calculate length of x-axis then scale to match pie charts above
 	x = np.arange(len(labels))
 	scaled_x = [1.6*i for i in x]
-	rects = ax.bar(scaled_x, values, width, color=[CMAP(i) for i in range(2,len(labels))])
-
+	print(labels)
+	rects = ax.bar(scaled_x, values, width, color=[CMAP(i) for i in range(0,n_labels)], label=label)
 	ax.set_xticks(scaled_x)
 	ax.set_xticklabels([label.capitalize().replace('_', ' ') for label in labels])
 	auto_label(rects, ax,font_size)
