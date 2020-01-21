@@ -6,16 +6,29 @@ Example usage,
 >>> df = pd.read_csv("CSVData.csv", names=["Date","Tx", "Description", "Curr_Balance"])
 >>> account = w.account_data(df)
 
+
+import pandas as pd
+import dataframe_worker as w
+df = pd.read_csv("CSVData.csv", names=["Date","Tx", "Description", "Curr_Balance"])
+a = w.account_data(df)
+
+a.display_expenditure_stats()
 """
 
 import pandas as pd
 import numpy as np
+
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+import matplotlib.patches as mpatches
+
 import environ
 from datetime import date
 import math
 import os
-		
+
+CMAP =  plt.get_cmap('Paired')
+
 class account_data():
 	"""
 	IDEA: Monthly overview of the account,
@@ -26,6 +39,7 @@ class account_data():
 	 """
 	
 	# grab local environ settings and attempt to read settings file
+	
 	env = environ.Env()
 	env_file = os.path.join(os.getcwd(), "local.env")
 
@@ -63,7 +77,7 @@ class account_data():
 		'subscriptions': SUBSCRIPTIONS,
 		'groceries': GROCERIES,
 	}
-	
+
 	def __init__(self, account_frame):
 	     account_frame.Description = account_frame.Description.apply(str.upper)
 	     account_frame.Date=pd.to_datetime(account_frame.Date, format="%d/%m/%Y")
@@ -93,7 +107,7 @@ class account_data():
 
 		for key, term in self.INCOME.items():
 			for i in range(0, len(acc_frame)):
-				if term in acc_frame.Description[i]:
+				if str(term).strip() in acc_frame.Description[i]:
 					incomes[key].append([acc_frame.Date[i], acc_frame.Tx[i]])
 
 		return incomes
@@ -112,6 +126,7 @@ class account_data():
 
 	def get_expenditures(self, acc_frame):
 		date_utilities, date_health, date_eat, date_coffee, date_subs, date_groceries = ([] for i in range(6))
+		n = len(acc_frame)
 
 		expenditures = {
 			'utilities': date_utilities,
@@ -122,12 +137,23 @@ class account_data():
 			'groceries': date_groceries,
 		}
 
-		for key, term in self.EXPENDITURES.items():
-			for i in range(0, len(acc_frame)):
-				for category in term:
-					if category in acc_frame.Description[i]:
-						expenditures[key].append([acc_frame.Date[i], acc_frame.Tx[i]])
-
+		# iterate through cateogries
+		for key, term_list in self.EXPENDITURES.items():
+			# iterate through dataframe
+			for i in range(0, n):
+				# iterate through each sub-cat term in term_list
+				for sub_cat in term_list:
+					# print("Cat: " , sub_cat.upper(), "\nVal: ", acc_frame.Description[i])
+					
+					# INSTRUMENTAL TO BS NOT FINDING CAT'S IS INCLUDING THE STRIP FUNCTION!!!
+					search_term = str(sub_cat.upper()).strip()
+					search_field = str(acc_frame.Description[i].upper())
+					idx = search_field.find(search_term)
+					
+					if idx != -1:
+						expenditures[key].append([acc_frame.Date[i], acc_frame.Tx[i], search_term])
+						#print([acc_frame.Date[i], acc_frame.Tx[i]])
+						#input()
 		return expenditures
 
 	###############################################################
@@ -166,15 +192,72 @@ class account_data():
 		return True
 	
 	def update_savings_stats(self):
-		pass
+		"""
+		this method *assumes* that if new categories are added that they are 
+		appended, hence: previously known ordered additions of stats are in 
+		the same index positon and keyword order
+		"""
+		
+		# controls the max iterations of the stats details below
+		num_savings_accounts = 1
+
+		for i in range(0, num_savings_accounts):
+			# grab the savings lists (raw data)
+			dated_txs = self.savings
+			if len(dated_txs) == 0:
+				continue # we skip if the length is zero, avoids divide byt zero issues
+
+			if len(self.curr_savings_stats)  == 0:
+				# update initial vals of our specific savings stats if they dont exist
+				# there will be as many as these as categories in self.savings
+				self.curr_savings_stats = self.stats(dated_txs)
+			else:
+				# recalc the stats, but call the previous ones associated with 
+				# the current subcategory for reference in incrementally 
+				# calculating the new stats, 
+				curr_stats = self.curr_savings_stats
+				#i.e. grab the running_stats dict, *curr_stats[0]
+				self.curr_savings_stats = self.stats(dated_txs, *curr_stats['running_stats'])
+
+			print("update savings stats: {}".format(i))
+
+		return True
 	
 	def update_expenditure_stats(self):
-		pass
+		"""
+		this method *assumes* that if new categories are added that they are 
+		appended, hence: previously known ordered additions of stats are in 
+		the same index positon and keyword order
+		"""
+
+		i = 0
+		for expenditure in self.expenditures:
+			# grab the expenditure lists (raw data)
+			dated_txs = self.expenditures[expenditure]
+			if len(dated_txs) == 0:
+				continue
+
+			if len(self.curr_expenditure_stats)  == 0:
+				# update initial vals of our specific expenditure stats if they dont exist
+				# there will be as many as these as categories in self.incomes
+				self.curr_expenditure_stats = self.stats(dated_txs)
+			else:
+				# recalc the stats, but call the previous ones associated with 
+				# the current subcategory for reference in incrementally 
+				# calculating the new stats, 
+				curr_stats = self.curr_expenditure_stats
+				#i.e. grab the running_stats dict, *curr_stats[0]
+				self.curr_expenditure_stats = self.stats(dated_txs, *curr_stats['running_stats'])
+
+			print("update expenditure stats: {}".format(i))
+			i-=-1
+
+		return True
 
 	def display_income_stats(self):
 		""" Display some visualisations and print outs of the income data. """
 
-		# bar graph of income, lsit conversion needed as Tkinter fucks itself if it sees a numpy array...
+		# bar graph of income, list conversion needed as Tkinter fucks itself if it sees a numpy array...
 		income_raw = list(np.array(self.incomes['primary_income'])[:,1])
 		
 		labels = []
@@ -204,7 +287,55 @@ class account_data():
 		pass
 
 	def display_expenditure_stats(self):
-		pass
+		""" Display some visualisations and print outs of the income data. """
+		# Generate a pie chart of expenditures
+		# Generate a bar chart of each category vs. total budget
+
+		totals = []		
+		# create the outer subplot that will hold the boxplot and subplots
+		fig = plt.figure()
+		outer = gridspec.GridSpec(2, 1, wspace=0.2, hspace=0.2)
+
+		inner_top = gridspec.GridSpecFromSubplotSpec(1, len(self.expenditures.keys()), subplot_spec=outer[0],
+					wspace=0.1, hspace=0.1)
+		inner_bottom = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[1],
+					wspace=0.1, hspace=0.1)
+
+		key_counter = 0
+		for key, term_list in self.expenditures.items():
+			
+			labels = {} # labels and associated cost to use
+			for tx in term_list:
+				new_value = tx[1]
+				new_label = tx[2]
+				if new_label not in labels:
+					labels[new_label] = new_value
+				else:
+					labels[new_label] += new_value
+
+			# new category creates a new axis on the upper plot region
+			axN = plt.Subplot(fig, inner_top[key_counter])
+			
+			axN.set_prop_cycle(color=[CMAP(i) for i in range(1,10)])
+			
+			pie_chart(labels, axN, category=key)
+			fig.add_subplot(axN)
+
+			totals.append(sum(labels.values()))
+			key_counter -=- 1
+
+		ax_rect = plt.Subplot(fig, inner_bottom[0])
+		bar_chart(list(self.expenditures.keys()), totals, ax_rect)
+		
+		ax_rect.set_ylabel('Expenditure')
+		ax_rect.set_xlabel('Category of Expenditure')
+		fig.add_subplot(ax_rect)
+
+		plt.show()
+
+		# later, add paycheck stuff here too - ADP does it well, do the same pie-chart
+		# and check MoneyTree, great visualisations on that too
+		return True
 
 
 	###############################################################
@@ -325,16 +456,15 @@ class account_data():
 # Utility
 ###############################################################
 
-def auto_label(rects, ax):
+def auto_label(rects, ax, font_size):
 	""" Attach a text label above each bar in *rects*, displaying its height. """
 	for rect in rects:
 		height = rect.get_height()
 		ax.annotate('{}'.format(height), 
 			xy=(rect.get_x() + rect.get_width() / 2, height), 
-			xytext=(0,3), # 3 points offset in y-axis 
-			textcoords="offset points",
+			xytext=(80, 0), # position on "top" of bar (x, y)
+			textcoords="offset points", fontsize=font_size,
 			ha='center', va='bottom')
-
 
 def incremental_standard_dev(prev_std, new_vals, prev_mean, curr_mean):
 	""" Calculate the standard deviation based on the previous values and update the current standard deviation.
@@ -360,3 +490,57 @@ def incremental_mean(prev_mean, new_vals):
 		mean = mean + (x - mean)/n
 
 	return mean
+
+def pie_chart(label_val_dict, ax, category=None):
+	""" Pie chart constructor for given labels and sizes.
+	Returns the generated figure and axis objects. """
+
+	#cmap = plt.get_cmap("tab20c")
+	#colours = cmap(np.array(len(labels))*4)
+	size = 0.5 # setting for controlling width of wedges, creates donut shape
+	font_size = 9
+	rad = 1
+	print(label_val_dict)
+
+	# initially set labels as none, update with custom legend after
+	wedges, texts, autotexts = ax.pie(
+		[math.fabs(x) for x in label_val_dict.values()], 
+		labels=None, autopct="%1.1lf%%", 
+		shadow=False, radius=rad, pctdistance=(rad+rad*0.1),
+		wedgeprops=dict(width=size, edgecolor='w'))
+	
+	# creating the legend labels, use the label keys that would have been
+	# initially passed to pie()
+	# use a bbox to set legend below pie chart for improved visibility
+	ax.legend(wedges, loc="lower center", labels=label_val_dict.keys(), bbox_to_anchor=(rad*0.2, -0.4))
+	plt.setp(autotexts, size=font_size, weight="bold")
+	
+	if category is not None:
+		ax.set_title(category.capitalize().replace('_', ' '), weight="bold")
+	else:
+		pass
+
+	# DEPRECIATED! This is done within the pie() method automatically now
+	# Equal aspect ratio ensures that pie is drawn as a circle.
+	# ax.axis("equal") 
+
+	return
+
+def bar_chart(labels, values, ax):
+	""" Bar chart constructor for given labels and sizes.
+	Returns the generated axis object. """
+	
+	width = 1
+	font_size = 12
+	
+	# calculate length of x-axis then scale to match pie charts above
+	x = np.arange(len(labels))
+	scaled_x = [1.6*i for i in x]
+	rects = ax.bar(scaled_x, values, width, color=[CMAP(i) for i in range(2,len(labels))])
+
+	ax.set_xticks(scaled_x)
+	ax.set_xticklabels([label.capitalize().replace('_', ' ') for label in labels])
+	auto_label(rects, ax,font_size)
+
+	return
+
