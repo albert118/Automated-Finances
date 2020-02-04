@@ -276,21 +276,60 @@ class account_data():
 
 		return True
 
-	def display_income_stats(self):
+	def display_income_stats(self, n_charts_top = 3):
 		""" Display some visualisations and print outs of the income data. """
+
+		# setup the grids for holding our plots, attach them to the same figure
+		fig = plt.figure()
+		outer = gridspec.GridSpec(2, 1, wspace=0.2, hspace=0.2)
+		# inner_**** are for use with plotting, outer is purely spacing
+		inner_top = gridspec.GridSpecFromSubplotSpec(1, n_charts_top, subplot_spec=outer[0],
+					wspace=0.1, hspace=0.1)
+		inner_bottom = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[1],
+					wspace=0.1, hspace=0.1)
+
+		# we want to display pie charts showing; hours, hourly + comms dist, income + tax dist
+		# incomes contains 2 frames and three sub-dicts, the data we need for charts is in frames
+		income_stats 	= self.incomes["latest_week_income"]
+		income_agg 		= self.incomes["aggregate_income"]
+
+		# labels
+		hour_dist_labels 		= income_stats.Description.tolist()
+		hour_plus_comms_labels 	= hour_dist_labels
+		income_tax_dist_labels 	=  ["Tax","NET income"] 
+		# data
+		hour_dist_data 			= income_stats.Hours..values.tolist() 
+		hour_plus_comms_data	= income_stats.Value.values.tolist()
+		income_tax_dist_data	= [income_agg.Tax.values, income_agg["NET INCOME"].values] # TODO, check label of frame here
+		
+		# now create the subplots for each pie chart
+		ax_hour_dist		=  plt.Subplot(fig, inner_top[0])
+		ax_hour_plus_comms	=  plt.Subplot(fig, inner_top[1])
+		ax_income_tax		=  plt.Subplot(fig, inner_top[2])
+
+		list_ax = [ax_hour_dist, ax_hour_plus_comms, ax_income_tax]
+		list_labels = [hour_dist_labels, hour_plus_comms_labels, income_tax_dist_labels]
+
+		# compelete by generating charts and setting CMAP
+		i = 0
+		for ax in list_ax:
+			ax.set_prop_cycle(color=[CMAP(j) for j in range(1,10)])
+			pie_chart(list_labels[i], ax)
+			fig.add_subplot(ax)
+			i -=-1
 
 		# list conversion needed as Tkinter crashes on np.array() interaction
 		income_raw = list(np.array(self.incomes['primary_income'])[:,1])
+		# now use the raw data to create a bar chart of NET income data
+		ax_bar_income_raw = plt.Subplot(fig, inner_bottom[0])
+		bar_labels = ["Week {}".format(i) for i in range(len(income_raw))]
+		bar_chart(bar_labels, totals, ax_bar_income_raw)
 
-		# income bar chart
-		fig, ax = plt.subplots()
-		bar_chart(["Week {}".format(i) for i in range(len(income_raw))], income_raw, ax,label="Primary Income")
-		ax.set_ylabel('Income')
-		ax.set_xlabel('Week of Income')
+		ax_bar_income_raw.set_ylabel('Income')
+		ax_bar_income_raw.set_xlabel('Week of Income')
 		ax.legend()
 
-		# later, add paycheck stuff here too - ADP does it well, do the same pie-chart
-		# and check MoneyTree, great visualisations on that too
+		fig.add_subplot(ax_bar_income_raw)
 
 		plt.show()
 		return True
