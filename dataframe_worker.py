@@ -5,6 +5,9 @@ Example usage,
 >>> import dataframe_worker as w
 >>> df = pd.read_csv("CSVData.csv", names=["Date","Tx", "Description", "Curr_Balance"])
 >>> account = w.account_data(df)
+>>> 
+>>> a.display_income_stats()
+>>> a.display_expenditure_stats()
 
 import pandas as pd
 import dataframe_worker as w
@@ -13,6 +16,7 @@ a = w.account_data(df)
 
 a.display_income_stats()
 a.display_expenditure_stats()
+
 """
 
 import pandas as pd
@@ -389,15 +393,15 @@ class account_data():
 		return income_data, income_stats_data
 
 	def get_savings(self, acc_frame):
-		date_savings = []
-		for i in range(0, len(acc_frame)):
+		date_savings = {}
+		for i in range(len(acc_frame)):
 			# tx for savings always includes the acc_id ref
 			for _id in self.SAVINGS_IDS:
-
+				desc_val = acc_frame.loc["Description", i]
+				tx_val   = acc_frame.loc["Tx", i]
 				# test for outgoing as well as unique ref id
-				if _id in acc_frame.Description[i] and acc_frame.Tx[i] > 0:
-					date_savings.append([acc_frame.Date[i], acc_frame.Tx[i]])
-
+				if _id in desc_val and tx_val > 0:
+					date_savings[desc_val] = [acc_frame.loc["Date", i], tx_val]
 		return date_savings
 
 	def get_expenditures(self, acc_frame):
@@ -520,27 +524,109 @@ class account_data():
 
 		return True
 
-	def display_income_stats(self):
+	def display_income_stats(self, n_charts_top = 3):
 		""" Display some visualisations and print outs of the income data. """
+
+		# setup the grids for holding our plots, attach them to the same figure
+		fig = plt.figure()
+		outer = gridspec.GridSpec(2, 1, wspace=0.2, hspace=0.2)
+		# inner_**** are for use with plotting, outer is purely spacing
+		inner_top = gridspec.GridSpecFromSubplotSpec(1, n_charts_top, subplot_spec=outer[0],
+					wspace=0.1, hspace=0.1)
+		inner_bottom = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[1],
+					wspace=0.1, hspace=0.1)
+
+		# we want to display pie charts showing; hours, hourly + comms dist, income + tax dist
+		# incomes contains 2 frames and three sub-dicts, the data we need for charts is in frames
+		income_stats 	= self.incomes["latest_week_income"]
+		income_agg 		= self.incomes["aggregate_income"]
+
+		# labels
+		hour_dist_labels 		= income_stats.Description.tolist()
+		hour_plus_comms_labels 	= hour_dist_labels
+		income_tax_dist_labels 	=  ["Tax","NET income"] 
+		# data
+		hour_dist_data 			= income_stats.Hours..values.tolist() 
+		hour_plus_comms_data	= income_stats.Value.values.tolist()
+		income_tax_dist_data	= [income_agg.Tax.values, income_agg["NET INCOME"].values] # TODO, check label of frame here
+		
+		# now create the subplots for each pie chart
+		ax_hour_dist		=  plt.Subplot(fig, inner_top[0])
+		ax_hour_plus_comms	=  plt.Subplot(fig, inner_top[1])
+		ax_income_tax		=  plt.Subplot(fig, inner_top[2])
+
+		list_ax = [ax_hour_dist, ax_hour_plus_comms, ax_income_tax]
+		list_labels = [hour_dist_labels, hour_plus_comms_labels, income_tax_dist_labels]
+
+		# compelete by generating charts and setting CMAP
+		i = 0
+		for ax in list_ax:
+			ax.set_prop_cycle(color=[CMAP(j) for j in range(1,10)])
+			pie_chart(list_labels[i], ax)
+			fig.add_subplot(ax)
+			i -=-1
 
 		# list conversion needed as Tkinter crashes on np.array() interaction
 		income_raw = list(np.array(self.incomes['primary_income'])[:,1])
+		# now use the raw data to create a bar chart of NET income data
+		ax_bar_income_raw = plt.Subplot(fig, inner_bottom[0])
+		bar_labels = ["Week {}".format(i) for i in range(len(income_raw))]
+		bar_chart(bar_labels, totals, ax_bar_income_raw)
 
-		# income bar chart
-		fig, ax = plt.subplots()
-		bar_chart(["Week {}".format(i) for i in range(len(income_raw))], income_raw, ax,label="Primary Income")
-		ax.set_ylabel('Income')
-		ax.set_xlabel('Week of Income')
+		ax_bar_income_raw.set_ylabel('Income')
+		ax_bar_income_raw.set_xlabel('Week of Income')
 		ax.legend()
 
-		# later, add paycheck stuff here too - ADP does it well, do the same pie-chart
-		# and check MoneyTree, great visualisations on that too
+		fig.add_subplot(ax_bar_income_raw)
 
 		plt.show()
 		return True
 
 	def display_savings_stats(self):
-		pass
+		"""Generate the display for savings data, based on bank account drawn data. 
+		TODO: Integrate options for REST Super"""
+		
+		fig = plt.figure()
+		# Display savings across accounts, bar per acc., i.e. bar figure
+		# Trendline of account, with short range projection (1 month)
+		#	plot 1 month predic. line
+		#	plot 1 month best-case (optimal saving)
+		
+		# set the display stack of two charts with grid_spec
+		outer_grid_spec = gridspec.GridSpec(2, 1, wspace=0.2, hspace=0.2)
+		disp_top 		= gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[0],
+					wspace=0.1, hspace=0.1)
+		disp_bottom 	= gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[1],
+					wspace=0.1, hspace=0.1)
+
+		# create the bar chart savings quick view (think like CommBank's app viz)
+		savings_data = self.savings.values[1] # values is a list of from [date, tx_val]
+		savings_dates = self.savings.values[0]
+		savings_lbls = self.savings.keys # keys are description values
+		
+		income_net = self.incomes.values # TODO, not neccessairly the same week, this is intended to be used in the scatter vs. savings in same week
+		savings_perc = [savings_data[i]/income_net[i] for i in range(len(savings_data))]
+
+		# adjust the labels to include the dates
+		for i in range(len(savings_lbls)):
+			savings_lbls[i] = str(savings_dates).join(str(savings_lbls[i]))
+
+		# bar chart subplot on disp_bottom
+		ax_savings_bar	= plt.Subplot(fig, disp_bottom[0])
+		bar_chart(savings_lbls, savings_data, ax_savings_bar)
+
+		ax_savings_bar.set_ylabel('Savings')
+		ax_savings_bar.set_xlabel('Date and Description')
+		ax.legend()
+		fig.add_subplot(ax_savings_bar)
+
+		# now create the trendline and place it in disp_top
+		ax_savings_trend = plt.Subplot(fig, disp_top[0])
+		# also set the size to the normalised value of data
+		savings_data.
+		scatter_plotter(savings_dates, savings_perc, size_vals, ax_savings_trend)
+
+		return True
 
 	def display_expenditure_stats(self):
 		""" Display some visualisations and print outs of the income data. """
@@ -800,3 +886,12 @@ def bar_chart(labels, values, ax, label=None):
 
 	return
 
+def scatter_plotter(X, Y, area, ax, ALPHA=0.5, _cmap=CMAP):
+	plt.scatter(X, Y,s=area, cmap=_cmap, alpha=ALPHA)
+	return
+
+def normaliser(x):
+	X = np.asarray(x)
+	
+	def f(x):
+		return (x-x.min())/(x.max()-x.min())
