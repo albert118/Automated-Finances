@@ -4,20 +4,13 @@ Example usage,
 >>> import pandas as pd
 >>> import dataframe_worker as w
 >>> df = pd.read_csv("CSVData.csv", names=["Date","Tx", "Description", "Curr_Balance"])
->>> account = w.account_data(df)
+>>> a = w.account_data(df)
 >>> 
 >>> a.display_income_stats()
 >>> a.display_expenditure_stats()
+>>> a.display_savings_stats()
 
-import pandas as pd
-import dataframe_worker as w
-df = pd.read_csv("CSVData.csv", names=["Date","Tx", "Description", "Curr_Balance"])
-a = w.account_data(df)
-a.display_savings_stats()
-
-a.display_income_stats()
-a.display_expenditure_stats()
-a.display_savings_stats()
+this will display several charts on the named areas.
 """
 
 import pandas as pd
@@ -533,11 +526,11 @@ class account_data():
 
 		return True
 
-	def display_income_stats(self, n_charts_top = 3):
+	def display_income_stats(self, n_charts_top = 3, figsize=(10,10)):
 		""" Display some visualisations and print outs of the income data. """
 
 		# setup the grids for holding our plots, attach them to the same figure
-		fig = plt.figure()
+		fig = plt.figure(figsize=(10,10))
 		outer = gridspec.GridSpec(2, 1, wspace=0.2, hspace=0.2)
 		# inner_**** are for use with plotting, outer is purely spacing
 		inner_top = gridspec.GridSpecFromSubplotSpec(1, n_charts_top, subplot_spec=outer[0],
@@ -595,15 +588,13 @@ class account_data():
 		ax_bar_income_raw.legend()
 
 		fig.add_subplot(ax_bar_income_raw)
+		return fig
 
-		plt.show()
-		return True
-
-	def display_savings_stats(self):
+	def display_savings_stats(self, figsize=(10,10)):
 		"""Generate the display for savings data, based on bank account drawn data. 
 		TODO: Integrate options for REST Super"""
 		
-		fig = plt.figure()
+		fig = plt.figure(figsize=figsize)
 		# Display savings across accounts, bar per acc., i.e. bar figure
 		# Trendline of account, with short range projection (1 month)
 		#	plot 1 month predic. line
@@ -652,23 +643,22 @@ class account_data():
 		ax_savings_trend.set_xlabel("Savings Date")
 		fig.add_subplot(ax_savings_trend)
 
-		plt.show()
-		return True
+		return fig
 
-	def display_expenditure_stats(self):
+	def display_expenditure_stats(self, figsize=(10,10)):
 		""" Display some visualisations and print outs of the income data. """
 		# Generate a pie chart of expenditures
 		# Generate a bar chart of each category vs. total budget
 
 		totals = []		
 		# create the outer subplot that will hold the boxplot and subplots
-		fig = plt.figure()
-		outer = gridspec.GridSpec(2, 1, wspace=0.2, hspace=0.2)
-
-		inner_top = gridspec.GridSpecFromSubplotSpec(1, len(self.expenditures.keys()), subplot_spec=outer[0],
-					wspace=0.1, hspace=0.1)
+		fig = plt.figure(figsize=(10,10))
+		outer = gridspec.GridSpec(2, 1, figure=fig, height_ratios=[3,1])
+		col_count = math.ceil(len(self.expenditures.keys())/2)
+		inner_top = gridspec.GridSpecFromSubplotSpec(2, col_count, subplot_spec=outer[0],
+					wspace=0.2, hspace=0.2)
 		inner_bottom = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[1],
-					wspace=0.1, hspace=0.1)
+					wspace=0.05, hspace=0.1)
 
 		key_counter = 0
 		for key, term_list in self.expenditures.items():
@@ -683,28 +673,28 @@ class account_data():
 					labels[new_label] += new_value
 
 			# new category creates a new axis on the upper plot region
-			axN = plt.Subplot(fig, inner_top[key_counter])
-			
+			if key_counter < col_count:
+				axN = fig.add_subplot(inner_top[0, key_counter]) # this is also one of the cleaner ways to create the axis
+			else:
+				axN = fig.add_subplot(inner_top[1, key_counter-col_count]) # this is also one of the cleaner ways to create the axis
+
 			axN.set_prop_cycle(color=[CMAP(i) for i in range(1,10)])
-			
 			pie_chart(labels, axN, category=key)
-			fig.add_subplot(axN)
 
 			totals.append(sum(labels.values()))
 			key_counter -=- 1
 
-		ax_rect = plt.Subplot(fig, inner_bottom[0])
+		plt.suptitle("Expenditure Statistics")
+		ax_rect = fig.add_subplot(inner_bottom[0])
 		bar_chart(list(self.expenditures.keys()), totals, ax_rect)
 		
 		ax_rect.set_ylabel('Expenditure')
 		ax_rect.set_xlabel('Category of Expenditure')
 		fig.add_subplot(ax_rect)
 
-		plt.show()
-
 		# later, add paycheck stuff here too - ADP does it well, do the same pie-chart
 		# and check MoneyTree, great visualisations on that too
-		return True
+		return fig
 
 	############################################################################
 	# Stats
@@ -908,7 +898,6 @@ def scatter_plotter(X, Y, ax, area=10, ALPHA=0.9, _cmap=CMAP):
 	else:
 		sizing = [pow(a, 0.9) for a in area]
 
-	print(sizing)
 	ax.scatter(X, Y, s=sizing, c='black', cmap=_cmap, alpha=ALPHA)
 	ax.set_ylim([np.asarray(Y).min(), np.asarray(Y).max()])
 	ax.set_xlim([np.asarray(X).min(), np.asarray(X).max()])
@@ -919,11 +908,7 @@ def normaliser(x):
 		raise ValueError
 	else:
 		pass
-
 	def f(_x):
 		return (_x-_x.min())/(_x.max()-_x.min())
-	
-	print(x)
-	input()
 	X = np.asarray(x)
 	return list((map(f, X)))
