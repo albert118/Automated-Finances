@@ -5,6 +5,9 @@ Example usage,
 >>> import dataframe_worker as w
 >>> df = pd.read_csv("CSVData.csv", names=["Date","Tx", "Description", "Curr_Balance"])
 >>> account = w.account_data(df)
+>>> 
+>>> a.display_income_stats()
+>>> a.display_expenditure_stats()
 
 import pandas as pd
 import dataframe_worker as w
@@ -13,6 +16,7 @@ a = w.account_data(df)
 
 a.display_income_stats()
 a.display_expenditure_stats()
+
 """
 
 import pandas as pd
@@ -146,15 +150,15 @@ class account_data():
 		return incomes
 
 	def get_savings(self, acc_frame):
-		date_savings = []
-		for i in range(0, len(acc_frame)):
+		date_savings = {}
+		for i in range(len(acc_frame)):
 			# tx for savings always includes the acc_id ref
 			for _id in self.SAVINGS_IDS:
-
+				desc_val = acc_frame.loc["Description", i]
+				tx_val   = acc_frame.loc["Tx", i]
 				# test for outgoing as well as unique ref id
-				if _id in acc_frame.Description[i] and acc_frame.Tx[i] > 0:
-					date_savings.append([acc_frame.Date[i], acc_frame.Tx[i]])
-
+				if _id in desc_val and tx_val > 0:
+					date_savings[desc_val] = [acc_frame.loc["Date", i], tx_val]
 		return date_savings
 
 	def get_expenditures(self, acc_frame):
@@ -335,7 +339,50 @@ class account_data():
 		return True
 
 	def display_savings_stats(self):
-		pass
+		"""Generate the display for savings data, based on bank account drawn data. 
+		TODO: Integrate options for REST Super"""
+		
+		fig = plt.figure()
+		# Display savings across accounts, bar per acc., i.e. bar figure
+		# Trendline of account, with short range projection (1 month)
+		#	plot 1 month predic. line
+		#	plot 1 month best-case (optimal saving)
+		
+		# set the display stack of two charts with grid_spec
+		outer_grid_spec = gridspec.GridSpec(2, 1, wspace=0.2, hspace=0.2)
+		disp_top 		= gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[0],
+					wspace=0.1, hspace=0.1)
+		disp_bottom 	= gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[1],
+					wspace=0.1, hspace=0.1)
+
+		# create the bar chart savings quick view (think like CommBank's app viz)
+		savings_data = self.savings.values[1] # values is a list of from [date, tx_val]
+		savings_dates = self.savings.values[0]
+		savings_lbls = self.savings.keys # keys are description values
+		
+		income_net = self.incomes.values # TODO, not neccessairly the same week, this is intended to be used in the scatter vs. savings in same week
+		savings_perc = [savings_data[i]/income_net[i] for i in range(len(savings_data))]
+
+		# adjust the labels to include the dates
+		for i in range(len(savings_lbls)):
+			savings_lbls[i] = str(savings_dates).join(str(savings_lbls[i]))
+
+		# bar chart subplot on disp_bottom
+		ax_savings_bar	= plt.Subplot(fig, disp_bottom[0])
+		bar_chart(savings_lbls, savings_data, ax_savings_bar)
+
+		ax_savings_bar.set_ylabel('Savings')
+		ax_savings_bar.set_xlabel('Date and Description')
+		ax.legend()
+		fig.add_subplot(ax_savings_bar)
+
+		# now create the trendline and place it in disp_top
+		ax_savings_trend = plt.Subplot(fig, disp_top[0])
+		# also set the size to the normalised value of data
+		savings_data.
+		scatter_plotter(savings_dates, savings_perc, size_vals, ax_savings_trend)
+
+		return True
 
 	def display_expenditure_stats(self):
 		""" Display some visualisations and print outs of the income data. """
@@ -503,7 +550,7 @@ class account_data():
 		return {'running_stats': running_stats,'weekly_stats': weekly_stats,'four_week_stats': four_week_stats}
 
 ########################################################################
-# Utility
+# Utility and Factories
 ########################################################################
 
 def auto_label(rects, ax, font_size):
@@ -595,3 +642,12 @@ def bar_chart(labels, values, ax, label=None):
 
 	return
 
+def scatter_plotter(X, Y, area, ax, ALPHA=0.5, _cmap=CMAP):
+	plt.scatter(X, Y,s=area, cmap=_cmap, alpha=ALPHA)
+	return
+
+def normaliser(x):
+	X = np.asarray(x)
+	
+	def f(x):
+		return (x-x.min())/(x.max()-x.min())
