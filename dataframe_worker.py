@@ -1,18 +1,3 @@
-""" Preprocessing on the incoming dataframes: Netbanking, Payslips [+add more later]. 
-
-Example usage, 
->>> import pandas as pd
->>> import dataframe_worker as w
->>> df = pd.read_csv("CSVData.csv", names=["Date","Tx", "Description", "Curr_Balance"])
->>> a = w.account_data(df)
->>> 
->>> a.display_income_stats()
->>> a.display_expenditure_stats()
->>> a.display_savings_stats()
-
-this will display several charts on the named areas.
-"""
-
 import pandas as pd
 import numpy as np
 
@@ -29,9 +14,23 @@ import os
 import traceback
 import warnings
 
+# Global colour map variable
 CMAP =  plt.get_cmap('Paired')
 
 def safe_environ():
+	"""Check for the environment settings and config file. Attempt to gracefully
+	import the local.env file and deal with a FileNotFoundError or other
+	configuration error.
+
+	Returns
+	----------
+	env, Env builtin object
+		the environemtn class object is returned on successful detection of the
+		local.env file
+	default_warn, str
+		this is returned if the file cannot be found. Prints a message to stderr
+	"""
+
 	default_warn = "[ENVIRON SETTINGS] Environment settings not found"
 	try:
 		# grab local environ settings and attempt to read settings file
@@ -42,14 +41,13 @@ def safe_environ():
 	except FileNotFoundError:
 		return sys.exit(default_warn)
 
-class account_data():
-	"""*********************************************************************************
-	This is an object designed to track the user's finance account data. It aims to
+class AccountData(accountframe):
+	"""AccountData(accountframe)
+	This is an object designed to track several finance accounts of the user. It aims to
 	combine multiple finance related accounts into one location for visualisation and
 	informative statistics. 
 
 	IDEA: 
-
 	Monthly overview of bank accounts,
 		* incoming review; avg., total p/mnth, total p each week, by category:
 		* outgoing overview; total, avg., by category 
@@ -76,20 +74,39 @@ class account_data():
 		* Investment gains
 		* other??
 
-	*********************************************************************************
+	Parameters
+	----------
+	accountframe: pandas DataFrame
+		a CSV bank account data dump
+	|tbd| payslipframe, pandas DataFrame
+		a preprocessed payslip-to-df conversion from ADP services 
 
+	See Also:
+	|tbd| refactoring will separate the get_payslips functionality out of this class
 	
-	 """ 
+	NOTE: categories are defined with all caps, this distinguishes 
+	from data values for the categories of the same name.
+
+	e.g. INCOME represents the category containing the subcategories
+	primary, supplemental and investment where as incomes 
+	represents the data associated per sub-category.
+
+	Examples
+	----------
+	>>> import pandas as pd
+	>>> import dataframe_worker as w
+	>>> df = pd.read_csv("CSVData.csv", names=["Date","Tx", "Description", "Curr_Balance"])
+	>>> a = w.account_data(df)
+	>>> 
+	>>> a.display_income_stats()
+	>>> a.display_expenditure_stats()
+	>>> a.display_savings_stats()
+
+	this will display several charts on the named areas.
+	""" 
 
 	def __init__(self, account_frame):
-		"""NOTE: categories are defined with all caps, this distinguishes 
-		from data values for the categories of the same name.
-
-		e.g. INCOME represents the category containing the subcategories
-		primary, supplemental and investment where as incomes 
-		represents the data associated per sub-category.
-
-		"""
+		"""Initialize self.  See help(type(self)) for accurate signature."""
 
 		# ensure safe env on account object instantiation
 		env = safe_environ()
@@ -571,8 +588,7 @@ class account_data():
 		i = 0
 		for ax in list_ax:
 			ax.set_prop_cycle(color=[CMAP(j) for j in range(1,10)])
-			# LABELS True sets default labels
-			pie_chart(label_val_dicts[i], ax, category=list_titles[i], LABELS=True)
+			pie_chart(label_val_dicts[i], ax, category=list_titles[i], LABELS=False)
 			fig.add_subplot(ax)
 			i -=-1
 
@@ -581,11 +597,10 @@ class account_data():
 		# now use the raw data to create a bar chart of NET income data
 		ax_bar_income_raw = plt.Subplot(fig, inner_bottom[0])
 		bar_labels = ["Week {}".format(i) for i in range(len(income_raw))]
+		# reverse to give time proceeding to the right, more intuitive to user
 		bar_chart(bar_labels, income_raw, ax_bar_income_raw)
-
 		ax_bar_income_raw.set_ylabel('Income')
 		ax_bar_income_raw.set_xlabel('Week of Income')
-		ax_bar_income_raw.legend()
 
 		fig.add_subplot(ax_bar_income_raw)
 		return fig
@@ -818,11 +833,11 @@ def auto_label(rects, ax, font_size):
 	""" Attach a text label above each bar in *rects*, displaying its height. """
 	for rect in rects:
 		height = rect.get_height()
-		ax.annotate('{}'.format(height), 
+		ax.annotate('{:.2f}'.format(height), 
 			xy=(rect.get_x() + rect.get_width() / 2, height), 
-			xytext=(80, 0), # position on "top" of bar (x, y)
+			xytext=(0, 5*np.sign(height)), # position on "top" of bar (x, y)
 			textcoords="offset points", fontsize=font_size,
-			ha='center', va='bottom')
+			ha='center', va='center_baseline')
 
 def incremental_standard_dev(prev_std, new_vals, prev_mean, curr_mean):
 	""" Calculate the standard deviation based on the previous values and update the current standard deviation.
@@ -850,8 +865,31 @@ def incremental_mean(prev_mean, new_vals):
 	return mean
 
 def pie_chart(label_val_dict, ax, category=None, LABELS=None, size=0.5, font_size=9, rad=1):
-	""" Pie chart constructor for given labels and sizes.
-	Returns the generated figure and axis objects. """
+	"""Pie chart constructor for given labels and sizes. This generates 'donut' pie charts with
+	percentage value labelling and styling features.
+
+	Parameters
+	----------
+	label_val_dict: dictionary
+		the label-value paired dictionary to plot
+	ax: pyplot axis
+		the axis object to bind to
+	category: string
+		the category being plotted, if None, no title is set
+	LABELS: boolean
+		LABELS True sets default labels (top right), False or None sets lower center
+	size: float
+		controls the size of the wedges generated for the 'donut' pies
+	font_size: int
+		font size of labelling
+	rad: float
+		the radius of the pie chart. The inner radius (wedge rad) is scaled from this
+	
+	Returns
+	----------
+	fig, pyplot figure
+		the generated figure object
+	"""
 
 	# initially set labels as none, update with custom legend after
 	wedges, texts, autotexts = ax.pie(
@@ -875,12 +913,31 @@ def pie_chart(label_val_dict, ax, category=None, LABELS=None, size=0.5, font_siz
 	return
 
 def bar_chart(labels, values, ax, label=None):
-	""" Bar chart constructor for given labels and sizes.
-	Returns the generated axis object. """
+	"""Bar chart constructor for given labels and sizes.
+	Returns the generated axis object.
+
+	Parameters
+	----------
+	labels: list
+		the labels to be applied to the chart
+	values: list
+		the values to be charted
+	ax: pyplot axis
+		the axis object to bind to
+	label: string
+		optional header title for the bar chart
+	
+	Returns
+	----------
+	fig, pyplot figure
+		the generated figure object
+	"""
 
 	width = 1
 	font_size = 12
 	n_labels = len(labels)
+	labels.reverse()
+	values.reverse()
 
 	# calculate length of x-axis then scale to match pie charts above
 	x = np.arange(len(labels))
@@ -889,10 +946,31 @@ def bar_chart(labels, values, ax, label=None):
 	ax.set_xticks(scaled_x)
 	ax.set_xticklabels([label.capitalize().replace('_', ' ') for label in labels])
 	auto_label(rects, ax,font_size)
-
 	return
 
 def scatter_plotter(X, Y, ax, area=10, ALPHA=0.9, _cmap=CMAP):
+	"""The scatterplot constructor. Generates a scatter plot with
+	auto-scaling values, based on area. Also applies styling and 
+	axis limiting.
+
+	Parameters
+	----------
+	X: list
+	Y: list
+		values to be plotted to appropriate axes
+	area: int
+		optional, scaling value to plot a third dimension onto the graph
+	ALPHA: float
+		optional, sets scatter points alpha setting
+	_cmap: colour map object
+		optional, override the global colour map and apply a custom option
+	
+	Returns
+	----------
+	fig, pyplot figure
+		the generated figure object
+	"""
+
 	if all(area) <= 1 and all(area) >= 0:
 		sizing = [pow(a, -0.9) for a in area]
 	else:
