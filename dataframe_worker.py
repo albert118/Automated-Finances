@@ -13,10 +13,11 @@ import pandas as pd
 import dataframe_worker as w
 df = pd.read_csv("CSVData.csv", names=["Date","Tx", "Description", "Curr_Balance"])
 a = w.account_data(df)
+a.display_savings_stats()
 
 a.display_income_stats()
 a.display_expenditure_stats()
-
+a.display_savings_stats()
 """
 
 import pandas as pd
@@ -236,7 +237,11 @@ class account_data():
 		
 		def _rename_headers(dataframe, header_index, cols_default_headers):
 			""" Rename the column headers from default guesses to the correct values.
-			Also performs some housekeeping by reindexing and dropping the header row. """
+			Also performs some housekeeping by reindexing and dropping the header row. 
+			
+			Due to the nature of separating a frame like this, it is possible to create duplicate 
+			header titles if _split_merged_columns is applied next, keep this in mind.
+			"""
 
 			try:
 				i = 0                          
@@ -318,7 +323,11 @@ class account_data():
 					dataframe.iloc[i, idx + 1] = vals[1]
 					# then replace the merged values with the single column value
 					dataframe.iloc[i, idx] = vals[0]
-				
+			test_cols_list = ['Description', 'Rate', 'Hours', 'Value', 'Description3', 'nan', 'Tax_Ind', 'Value']
+			if dataframe.columns.duplicated().any()	:
+				dataframe.columns = ['Description_Hours', 'Rate', 'Hours', 'Value_Hours', 'Description_Other', 'nan', 'Tax_Ind', 'Value_Other']
+				dataframe = dataframe.drop("nan", axis=1)
+
 			return dataframe
 
 		########################################################################
@@ -397,11 +406,11 @@ class account_data():
 		for i in range(len(acc_frame)):
 			# tx for savings always includes the acc_id ref
 			for _id in self.SAVINGS_IDS:
-				desc_val = acc_frame.loc["Description", i]
-				tx_val   = acc_frame.loc["Tx", i]
+				desc_val = acc_frame.loc[i, "Description"]
+				tx_val   = acc_frame.loc[i, "Tx"]
 				# test for outgoing as well as unique ref id
 				if _id in desc_val and tx_val > 0:
-					date_savings[desc_val] = [acc_frame.loc["Date", i], tx_val]
+					date_savings[desc_val] = [acc_frame.loc[i, "Date"], tx_val]
 		return date_savings
 
 	def get_expenditures(self, acc_frame):
@@ -538,31 +547,39 @@ class account_data():
 
 		# we want to display pie charts showing; hours, hourly + comms dist, income + tax dist
 		# incomes contains 2 frames and three sub-dicts, the data we need for charts is in frames
-		income_stats 	= self.incomes["latest_week_income"]
-		income_agg 		= self.incomes["aggregate_income"]
+		income_stats = self.incomes["latest_week_income"]
+		income_agg = self.incomes["aggregate_income"]
 
 		# labels
-		hour_dist_labels 		= income_stats.Description.tolist()
-		hour_plus_comms_labels 	= hour_dist_labels
-		income_tax_dist_labels 	=  ["Tax","NET income"] 
+		hour_dist_labels = income_stats["Description_Hours"].values
+		hour_plus_comms_labels = income_stats["Description_Other"].values
+		income_tax_dist_labels = ["Tax","NET income"] 
 		# data
-		hour_dist_data 			= income_stats.Hours..values.tolist() 
-		hour_plus_comms_data	= income_stats.Value.values.tolist()
-		income_tax_dist_data	= [income_agg.Tax.values, income_agg["NET INCOME"].values] # TODO, check label of frame here
+		hour_dist_data = np.array(income_stats["Value_Hours"].values, dtype=np.float32)
+		hour_plus_comms_data = np.array(income_stats["Value_Other"].values, dtype=np.float32)
+		income_tax_dist_data = [
+			# access the first element, janky I know..
+			np.array(income_agg.Tax.values, dtype=np.float32)[0], 
+			np.array(income_agg["NET INCOME"].values, dtype=np.float32)[0],			] 
 		
 		# now create the subplots for each pie chart
-		ax_hour_dist		=  plt.Subplot(fig, inner_top[0])
-		ax_hour_plus_comms	=  plt.Subplot(fig, inner_top[1])
-		ax_income_tax		=  plt.Subplot(fig, inner_top[2])
+		ax_hour_dist = plt.Subplot(fig, inner_top[0])
+		ax_hour_plus_comms = plt.Subplot(fig, inner_top[1])
+		ax_income_tax = plt.Subplot(fig, inner_top[2])
 
 		list_ax = [ax_hour_dist, ax_hour_plus_comms, ax_income_tax]
-		list_labels = [hour_dist_labels, hour_plus_comms_labels, income_tax_dist_labels]
-
+		label_val_dicts = [
+			dict(zip(hour_dist_labels,       hour_dist_data.tolist())), 
+			dict(zip(hour_plus_comms_labels, hour_plus_comms_data.tolist())), 
+			dict(zip(income_tax_dist_labels, income_tax_dist_data)),
+			]
+		list_titles = ["Hourly Distribution", "Other", "Income-Taxation Distribution"]
 		# compelete by generating charts and setting CMAP
 		i = 0
 		for ax in list_ax:
 			ax.set_prop_cycle(color=[CMAP(j) for j in range(1,10)])
-			pie_chart(list_labels[i], ax)
+			# LABELS True sets default labels
+			pie_chart(label_val_dicts[i], ax, category=list_titles[i], LABELS=True)
 			fig.add_subplot(ax)
 			i -=-1
 
@@ -571,11 +588,11 @@ class account_data():
 		# now use the raw data to create a bar chart of NET income data
 		ax_bar_income_raw = plt.Subplot(fig, inner_bottom[0])
 		bar_labels = ["Week {}".format(i) for i in range(len(income_raw))]
-		bar_chart(bar_labels, totals, ax_bar_income_raw)
+		bar_chart(bar_labels, income_raw, ax_bar_income_raw)
 
 		ax_bar_income_raw.set_ylabel('Income')
 		ax_bar_income_raw.set_xlabel('Week of Income')
-		ax.legend()
+		ax_bar_income_raw.legend()
 
 		fig.add_subplot(ax_bar_income_raw)
 
@@ -594,38 +611,48 @@ class account_data():
 		
 		# set the display stack of two charts with grid_spec
 		outer_grid_spec = gridspec.GridSpec(2, 1, wspace=0.2, hspace=0.2)
-		disp_top 		= gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[0],
+		disp_top 		= gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer_grid_spec[0],
 					wspace=0.1, hspace=0.1)
-		disp_bottom 	= gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[1],
+		disp_bottom 	= gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer_grid_spec[1],
 					wspace=0.1, hspace=0.1)
 
 		# create the bar chart savings quick view (think like CommBank's app viz)
-		savings_data = self.savings.values[1] # values is a list of from [date, tx_val]
-		savings_dates = self.savings.values[0]
-		savings_lbls = self.savings.keys # keys are description values
-		
-		income_net = self.incomes.values # TODO, not neccessairly the same week, this is intended to be used in the scatter vs. savings in same week
-		savings_perc = [savings_data[i]/income_net[i] for i in range(len(savings_data))]
+		savings_dates, savings_data = ([] for i in range(2))
+		raw_data = list(self.savings.values())
+		savings_lbls = list(self.savings.keys()) # keys are description values
+		# remember, savings data is a dict where val is a list, so calling values returns a list of lists!
+		for i in range(len(self.savings.values())):
+			sub_list = raw_data[i]
+			savings_data.append(sub_list[1])
+			savings_dates.append(sub_list[0].to_numpy())
+		raw_data.clear() # not needed in memory anymore!! Save the space
 
+		# TODO, not neccessairly the same week, this is intended to be used in the scatter vs. savings in same week
+		# to make it simpler, draw income net from the bank acc. data not the payslip, make the file's time-stamps work for us
+		raw_data = []
+		raw_data = self.incomes["primary_income"] # already a list, comprehension is far easier this time!
+		income_net = [elem[1] for elem in raw_data]
+		savings_perc = [savings_data[i]/income_net[i] for i in range(len(savings_data))]
+		
 		# adjust the labels to include the dates
 		for i in range(len(savings_lbls)):
-			savings_lbls[i] = str(savings_dates).join(str(savings_lbls[i]))
+			savings_lbls[i] = str(savings_dates[i]) + ' ' + savings_lbls[i]
 
 		# bar chart subplot on disp_bottom
 		ax_savings_bar	= plt.Subplot(fig, disp_bottom[0])
 		bar_chart(savings_lbls, savings_data, ax_savings_bar)
-
 		ax_savings_bar.set_ylabel('Savings')
 		ax_savings_bar.set_xlabel('Date and Description')
-		ax.legend()
 		fig.add_subplot(ax_savings_bar)
 
 		# now create the trendline and place it in disp_top
 		ax_savings_trend = plt.Subplot(fig, disp_top[0])
-		# also set the size to the normalised value of data
-		savings_data.
-		scatter_plotter(savings_dates, savings_perc, size_vals, ax_savings_trend)
+		scatter_plotter(savings_dates, savings_data, ax_savings_trend, area=savings_perc)
+		ax_savings_trend.set_ylabel("Savings Data")
+		ax_savings_trend.set_xlabel("Savings Date")
+		fig.add_subplot(ax_savings_trend)
 
+		plt.show()
 		return True
 
 	def display_expenditure_stats(self):
@@ -832,16 +859,9 @@ def incremental_mean(prev_mean, new_vals):
 
 	return mean
 
-def pie_chart(label_val_dict, ax, category=None):
+def pie_chart(label_val_dict, ax, category=None, LABELS=None, size=0.5, font_size=9, rad=1):
 	""" Pie chart constructor for given labels and sizes.
 	Returns the generated figure and axis objects. """
-
-	#cmap = plt.get_cmap("tab20c")
-	#colours = cmap(np.array(len(labels))*4)
-	size = 0.5 # setting for controlling width of wedges, creates donut shape
-	font_size = 9
-	rad = 1
-	print(label_val_dict)
 
 	# initially set labels as none, update with custom legend after
 	wedges, texts, autotexts = ax.pie(
@@ -850,21 +870,18 @@ def pie_chart(label_val_dict, ax, category=None):
 		shadow=False, radius=rad, pctdistance=(rad+rad*0.1),
 		wedgeprops=dict(width=size, edgecolor='w'))
 	
-	# creating the legend labels, use the label keys that would have been
-	# initially passed to pie()
-	# use a bbox to set legend below pie chart for improved visibility
-	ax.legend(wedges, loc="lower center", labels=label_val_dict.keys(), bbox_to_anchor=(rad*0.2, -0.4))
+	# creating the legend labels, use the label keys initially passed to us
+	if LABELS is True:
+		# use a bbox to set legend below pie chart for improved visibility if legend enabled
+		ax.legend(wedges, loc="lower center", labels=label_val_dict.keys(), bbox_to_anchor=(1,1))
+	else:
+		ax.legend(wedges, loc="lower center", labels=label_val_dict.keys(), bbox_to_anchor=(rad*0.2, -0.4))
+
 	plt.setp(autotexts, size=font_size, weight="bold")
 	
 	if category is not None:
+		# default title
 		ax.set_title(category.capitalize().replace('_', ' '), weight="bold")
-	else:
-		pass
-
-	# DEPRECIATED! This is done within the pie() method automatically now
-	# Equal aspect ratio ensures that pie is drawn as a circle.
-	# ax.axis("equal") 
-
 	return
 
 def bar_chart(labels, values, ax, label=None):
@@ -878,7 +895,6 @@ def bar_chart(labels, values, ax, label=None):
 	# calculate length of x-axis then scale to match pie charts above
 	x = np.arange(len(labels))
 	scaled_x = [1.6*i for i in x]
-	print(labels)
 	rects = ax.bar(scaled_x, values, width, color=[CMAP(i) for i in range(0,n_labels)], label=label)
 	ax.set_xticks(scaled_x)
 	ax.set_xticklabels([label.capitalize().replace('_', ' ') for label in labels])
@@ -886,12 +902,28 @@ def bar_chart(labels, values, ax, label=None):
 
 	return
 
-def scatter_plotter(X, Y, area, ax, ALPHA=0.5, _cmap=CMAP):
-	plt.scatter(X, Y,s=area, cmap=_cmap, alpha=ALPHA)
+def scatter_plotter(X, Y, ax, area=10, ALPHA=0.9, _cmap=CMAP):
+	if all(area) <= 1 and all(area) >= 0:
+		sizing = [pow(a, -0.9) for a in area]
+	else:
+		sizing = [pow(a, 0.9) for a in area]
+
+	print(sizing)
+	ax.scatter(X, Y, s=sizing, c='black', cmap=_cmap, alpha=ALPHA)
+	ax.set_ylim([np.asarray(Y).min(), np.asarray(Y).max()])
+	ax.set_xlim([np.asarray(X).min(), np.asarray(X).max()])
 	return
 
 def normaliser(x):
-	X = np.asarray(x)
+	if len(x) < 2:
+		raise ValueError
+	else:
+		pass
+
+	def f(_x):
+		return (_x-_x.min())/(_x.max()-_x.min())
 	
-	def f(x):
-		return (x-x.min())/(x.max()-x.min())
+	print(x)
+	input()
+	X = np.asarray(x)
+	return list((map(f, X)))
