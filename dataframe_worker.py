@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-from tabula import read_pdf as r
+from tabula import read_pdf
 
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -13,108 +13,107 @@ import math
 import os
 import traceback
 import warnings
+import sys
+
+import utilities
 
 # Global colour map variable
 CMAP =  plt.get_cmap('Paired')
 
-def safe_environ():
-	"""Check for the environment settings and config file. Attempt to gracefully
-	import the local.env file and deal with a FileNotFoundError or other
-	configuration error.
-
-	Returns
-	----------
-	env, Env builtin object
-		the environemtn class object is returned on successful detection of the
-		local.env file
-	default_warn, str
-		this is returned if the file cannot be found. Prints a message to stderr
-	"""
-
-	default_warn = "[ENVIRON SETTINGS] Environment settings not found"
-	try:
-		# grab local environ settings and attempt to read settings file
-		env = environ.Env()
-		env_file = os.path.join(os.getcwd(), "local.env")
-		env.read_env(env_file)
-		return env
-	except FileNotFoundError:
-		return sys.exit(default_warn)
-
-class AccountData(accountframe):
-	"""AccountData(accountframe)
-	This is an object designed to track several finance accounts of the user. It aims to
-	combine multiple finance related accounts into one location for visualisation and
-	informative statistics. 
-
-	IDEA: 
-	Monthly overview of bank accounts,
-		* incoming review; avg., total p/mnth, total p each week, by category:
-		* outgoing overview; total, avg., by category 
-		  (coffee, shopping, eating, groceries, utilities, health)
-		* savings overview: avg., total p/mnth, total p each week
-		* opening balance : closing balance : delta
-		* Category and subcategory visualisations to help track progress to 
-		  goals and see current position!
-		* planned/upcoming expenditure integrations (see calendar integrations)
-		* user savings goals and calculator tools for interest - fee accumulations
-
-	Paycheck integrations from ADP payroll solutions
-		* 4-week average,
-		* last received,
-		* hourly and commission based stats
-
-	Events and Calendar Integrations
-		* facebook event tracking (group specific)
-		* iCal/Google Cal integrations
-		* other??
-
-	Superannuaton Interation
-		* Review of fees
-		* Investment gains
-		* other??
-
-	Parameters
-	----------
-	accountframe: pandas DataFrame
-		a CSV bank account data dump
-	|tbd| payslipframe, pandas DataFrame
-		a preprocessed payslip-to-df conversion from ADP services 
-
-	See Also:
-	|tbd| refactoring will separate the get_payslips functionality out of this class
+class AccountData():
+	"""Track several user finance details and accounts.
 	
-	NOTE: categories are defined with all caps, this distinguishes 
-	from data values for the categories of the same name.
+	This is an object designed to track several finance accounts of the
+	user. It aims to combine multiple finance related accounts into one
+	location for visualisation and informative statistics. 
 
-	e.g. INCOME represents the category containing the subcategories
-	primary, supplemental and investment where as incomes 
-	represents the data associated per sub-category.
-
-	Examples
+	Attributes
 	----------
-	>>> import pandas as pd
-	>>> import dataframe_worker as w
-	>>> df = pd.read_csv("CSVData.csv", names=["Date","Tx", "Description", "Curr_Balance"])
-	>>> a = w.account_data(df)
-	>>> 
-	>>> a.display_income_stats()
-	>>> a.display_expenditure_stats()
-	>>> a.display_savings_stats()
+	incomes : dict
+		keys : ['primary_income', 'supplemental_income', 
+		'investment_income', 'latest_week_income','aggregate_income']
+		
+		Each key accesses the respective data of the descriptor.
+		TODO : adjust comments to match upcoming changes on incomes data structs
+	TODO : adjust comments of savings and expenditures to update changes to ds'
+	savings : dict
+		key : str
+			description of savings
+		val : list : timestamp, float
+			data for described savings
+	expenditures : dict
+		key : str
+			category as defined in local.env and fetched by __init__
+		val : list : timestamp, float, str
+			time of tx, val of tx, descrip. of tx
+	TODO : clean up stats methods and attributes
+	curr_income_stats :
+	curr_savings_stats :
+	curr_expenditure_stats : 
 
-	this will display several charts on the named areas.
+	Methods
+	----------
+	get_income(self, acc_frame)
+		get the income data from payslip and bank data, pass it back to 
+		AccountData as major attribute.
+
+	get_bank_incomes(self, acc_frame)
+		get the income bank data, pass it back to get_income for handling.
+
+	get_payslips(self, payslip_name='payslip.pdf', true_col_header_index = 5)
+		get the income data from payslip data, pass it back to get_income 
+		for handling.
+
+	get_savings(self, acc_frame)
+		get the savings data from bank data, pass it back to AccountData 
+		as major attribute.
+
+	get_expenditures(self, acc_frame)
+		get the expenditures data from bank data, pass it back to 
+		AccountData as major attribute
+
+		TODO : finish commenting for updaters and displayers
+		update_income_stats(self)
+		update_savings_stats(self)
+		update_expenditure_stats(self)
+	
+		display_income_stats(self, n_charts_top = 3, figsize=(10,10))
+		display_savings_stats(self, figsize=(10,10))
+		display_expenditure_stats(self, figsize=(10,10))
+
+		stats(self, date_tx, curr_mean=None, curr_min=None, curr_max=None, curr_std=None, curr_tot=None)
+			TODO : needs complete revamp
+
+		Examples
+		----------
+		Call the charts then display several charts on the named categories
+
+		>>> import pandas as pd
+		>>> import dataframe_worker as w
+		>>> df = pd.read_csv("CSVData.csv", names=["Date","Tx", "Description", "Curr_Balance"])
+		>>> a = w.account_data(df)
+		>>> a.display_income_stats()
+		>>> a.display_expenditure_stats()
+		>>> a.display_savings_stats()
 	""" 
 
-	def __init__(self, account_frame):
-		"""Initialize self.  See help(type(self)) for accurate signature."""
-
+	def __init__(self, account_frame, payslip_frame=None):
+		"""
+		Parameters
+		----------
+		account_frame : pandas.DataFrame
+			Banking data input
+		payslip_frame : pandas.DataFrame
+			Payslip data input
+		"""
 		# ensure safe env on account object instantiation
-		env = safe_environ()
+		env = utilities.safe_environ()
 
 		########################################################################
 		# Categories and Search terms
 		########################################################################
 		
+		# TODO : dynamic unpacking of listed vars for categories
 		self.INCOME = {
 			'primary_income': 		env.str("primary_income"), 
 			'supplemental_income': 	env.str("supplemental_income"), 
@@ -151,95 +150,143 @@ class AccountData(accountframe):
 		self.curr_income_stats, self.curr_savings_stats, self.curr_expenditure_stats = ([] for i in range(3))
 
 	############################################################################
+	# Child classes
+	############################################################################
+	class tx_data():
+		from pd import Timestamp
+
+		def __init__(description: str, time=Timestamp.today: Timestamp, value=0: float):
+			"""
+			Parameters
+			----------
+			time : pandas.Timestamp
+				the time of the transaction, default today
+			value : float
+				the transaction value, default 0
+			description : str
+				a description associated with the transaction
+			"""
+
+			self.time = time
+			self.val = value
+			self.desc = str(description)
+
+	############################################################################
 	# Getters
 	############################################################################
 	
-	def get_income(self, acc_frame):
+	def get_income(self, acc_frame) -> dict:
 		"""Get the user's bank details on income and combine with payroll data.
-		Inputs:
-			* acc_frame, acc_frame, the bank details frame
+		
+		Parameters
+		----------
+		acc_frame : pandas.DataFrame
+			The bank account frame to search
 
-			* kwargs:
-				* payslip_name, defaults to simple title. Use this to set the payslip
-				file name
-
-				* true_col_header_index, defaults to a magic number that works for my
-				ADP payroll pdf data. Use this if inspection of your pdf begins
-				the table earlier/later.
-		Returns:
-			* incomes, income_week_data, income_aggregate_data
-				a list of income data. incomes is intended for simple graphing
-				where as income week and aggregate datas are intended for
-				week to week performance metrics and tax checks, etc...
+		Returns
+		----------
+		incomes : dict
+			key : str
+				[
+					'primary_income',
+					'supplemental_income',
+					'investment_income',
+					'latest_week_income',
+					'aggregate_income',
+				]
+				These are set by self.INCOMES as categories of income
+			vals : list, pandas.DataFrame
+				list : 'primary_income', 'supplemental_income', 'investment_income'.
+				vals : tx_data scraped from input sources.
+				
+				pandas.DataFrame : 'income_week_data', 'income_aggregate_data'.
+				vals : data scraped from payslip input. income_week_data 
+					regards info from latest week payslip. income_aggregate_data
+					regards info from sum'd values weeks to date.
 		"""
+
 		incomes = self.get_bank_incomes(acc_frame)
 		income_aggregate_data, income_week_data = self.get_payslips()
 		incomes["aggregate_income"] = income_aggregate_data
 		incomes["latest_week_income"] = income_week_data
 		return incomes
 
-	def get_bank_incomes(self, acc_frame):
-		"""Get any aggregate income details present in banking data. This is
-		primarily a categorical search.
-		----------------------------------------------------------------------------
-		Inputs:
-			* acc_frame, the bank details frame
-		Returns:
-			* incomes, frame with income categories and discovered sub categories.
+	def get_bank_incomes(self, acc_frame) -> dict:
+		"""Get any aggregate income details present in banking data. 
+		
+		Parameters
+		----------
+		acc_frame : pandas.DataFrame
+			The bank account frame to search
+		
+		Returns
+		----------
+		incomes : dict
+			key : str
+				INCOME categories
+			vals : list : tx_data
+				A list of the income tx_data vals scraped, 
+				description is sub-cat.
 		"""
 
-		date_income, date_supplemental, date_investment = ([] for i in range(3))
-		# programatically update incomes dict and associated lists to maintain
+		# incomes dict and associated lists to add to
 		incomes = dict(zip(self.INCOME.keys(), ([] for i in range(len(self.INCOME)))))
 
 		for cat_key, sub_cat_list in self.INCOME.items():
 			for i in range(0, len(acc_frame)):
 				if str(sub_cat_list).strip() in acc_frame.Description[i]:
-					incomes[cat_key].append([acc_frame.Date[i], acc_frame.Tx[i], sub_cat_list])
+					incomes[cat_key].append(
+						tx_data(sub_cat_list, acc_frame.Date[i],  acc_frame.Tx[i])
+						)
 
 		return incomes
 
 	def get_payslips(self, payslip_name='payslip.pdf', true_col_header_index = 5):
-		"""Retreive the pdf, convert to dataframes for income stats and aggregate
-		income data. true_col_header_index is the constant value with the first
-		data frames actual headers that require extraction. This value is used
-		to relatively find further dataframes from the pdf.
+		"""Retreive the payslip pdf and create aggregate and latest_week frames.
 		
-		Note on usability: this function is intended to call up the latest payslip
-		for weekly displays, the stats function for income then aggregates for
-		monthly displays, etc...
-		----------------------------------------------------------------------------
-		Inputs:
-			* kwargs:
-				payslip_name, defaults to simple title. Use this to set the payslip
-				file name
+		Convert "structured" pdf to frames for easy use later, this is lots of
+		icky scraping/conversion code.
+		
+		Parameters
+		----------
+		payslip_name : str
+			The name of the file to scrape
+			default is the download name default. This is usually for testing
+			purposes.
 
-				true_col_header_index, defaults to a magic number that works for my
-				ADP payroll pdf data. Use this if inspection of your pdf begins
-				the table earlier/later.
+		true_col_header_index : int
+			This value is used to relatively find further dataframes from the pdf.
 
-		Returns:
-			* income_stats_data is the dataframe with hourly data, commissions and 
-				deductions
-				[Description, Rate, Hours, Value] [Description, Tax Index, Value]
-			* income_data is the aggregate income values 
-				[Gross, Taxable, Ded's pre and post, Tax, Net]
+			The row index where column titles are actually located. This
+			over-rides the default behaviour of tabula guessing where this
+			would be otherwise (and being wrong typically).
+			
+			Yes this is a magic number.
 
+			No it isn't tested for everything, only for my example with ADP.
+
+			Inspect this value yourself if the data is incorrectly parsed.
+
+		Notes
+		-----
+		This function is intended to call up the latest payslip for
+		weekly displays, the stats function for income then aggregates data for
+		longer timeframes.
+
+		Returns
+		-------
+		latest_week_income : pandas.DataFrame
+				The the dataframe with hourly data, commissions and deductions.
+				[
+					Description_Hours, Rate, Hours, 
+				  	Value_Hours, Description_Other, Tax_Ind, 
+					Value_Other
+				]
+
+		aggregate_income : pandas.DataFrame
+			The aggregate income values 
+			[Gross, Taxable Income, Post Tax Allows/Deds, Tax, NET]
 		"""
-		
-		########################################################################
-		# Declerations and Instantiations
-		########################################################################
-
-		income_data = pd.DataFrame()
-		income_stats_data = pd.DataFrame()
-		income_data_header_idx = None
-
-		# retrieve the payslip as a dataframe
-		# this retrieval uses the tabula pdf_reader
-		data = r(payslip_name)[0] # accessing the first of the frames returned
-
-		########################################################################
 
 		########################################################################
 		# Internal Utilities
@@ -247,6 +294,7 @@ class AccountData(accountframe):
 		
 		def _rename_headers(dataframe, header_index, cols_default_headers):
 			""" Rename the column headers from default guesses to the correct values.
+			
 			Also performs some housekeeping by reindexing and dropping the header row. 
 			
 			Due to the nature of separating a frame like this, it is possible to create duplicate 
@@ -284,7 +332,7 @@ class AccountData(accountframe):
 				input()
 				return 
 
-		def _split_merged_columns(dataframe):
+		def _split_merged_columns(dataframe) -> pandas.DataFrame:
 			# check first row 'splittable'
 			hdr_vals = dataframe.columns.tolist()
 			idxs_added = []
@@ -342,15 +390,19 @@ class AccountData(accountframe):
 
 		########################################################################
 
-		# drop the NaN column generated on import
-		# and get the default column titles
+		aggregate_income = pd.DataFrame()
+		latest_week_income = pd.DataFrame()
+		aggregate_income_header_idx = None
+		# retrieve the payslip, uses the tabula pdf_reader
+		data = read_pdf(payslip_name)[0]
+
+		# drop the NaN col generated and get the default column titles
 		data = data.drop(["Unnamed: 0", "Status"], axis=1)
 		cols_default_headers = data.columns.values
 
 		# split the data into new columns where tabula merged them, this must be
-		# dynamic as user could work further combinations of work rates or add
-		# further deductions, etc..., thus extending elem's of income stats table
-		for i in range(5, len(data)):
+		# dynamic as user could work further combinations of work rates, etc...
+		for i in range(true_col_header_index, len(data)):
 			row_split_check = data.iloc[[i]].isnull()
 			if row_split_check.values.any():
 				bool_header_NaN_spacing = row_split_check.sum().tolist()
@@ -359,31 +411,31 @@ class AccountData(accountframe):
 				if bool_header_NaN_spacing.count(0) is 1:
 					# this is the index where we split the data frame from aggregate
 					# and stat's income values, break after saving the new df
-					income_stats_data = data[true_col_header_index:i]
-					income_data = data[i + 1:len(data)]
-					income_data_header_idx = i + 1
+					latest_week_income = data[true_col_header_index:i]
+					aggregate_income = data[i + 1:len(data)]
+					aggregate_income_header_idx = i + 1
 					break
 
 		try:
-			# use the actual titles in row_id 5 to rename the column headers for
-			# income_stats_data, repeat for income_data
-			if income_stats_data.empty or income_data.empty:
+			# use correct titles in row_id = true_col_header_index for column header values
+			if latest_week_income.empty or aggregate_income.empty:
 				print("A frame was incorrectly initialised.")
 				raise ValueError
-			
 			else:
-				income_stats_data = _rename_headers(income_stats_data, true_col_header_index, cols_default_headers)
-				income_data = _rename_headers(income_data, income_data_header_idx, cols_default_headers)
+				latest_week_income = _rename_headers(
+					latest_week_income, true_col_header_index, cols_default_headers)
+				aggregate_income = _rename_headers(
+					aggregate_income, aggregate_income_header_idx, cols_default_headers)
 
 
 		except Exception as e:
 			print(type(e))
-			if income_data_header_idx is None:
+			if aggregate_income_header_idx is None:
 				print("The income and stats frames could not be dynamically calculated. ")
 			else:
 				print("Some error occured")
-				print('Income Stats Frame:\n', income_stats_data, '\n')
-				print('Income Data Frame:\n', income_data, '\n')
+				print('Latest Week Income Frame:\n', latest_week_income, '\n')
+				print('Aggregate Income Frame:\n', aggregate_income, '\n')
 				print('Data Frame:\n', data, '\n')
 				traceback.print_stack()
 				return
@@ -391,57 +443,90 @@ class AccountData(accountframe):
 		try:
 			# now the frames have been split horizontally, 
 			# split vertically where some columns have been merged
-			income_stats_data = _split_merged_columns(income_stats_data)
+			latest_week_income = _split_merged_columns(latest_week_income)
 
 		except Exception  as e:
 			print(type(e))
 			print("Could not split merged data values of income stats data.")
 			traceback.print_stack()
 			raise
-		# manually correct the header titles of income_data
-		hdr_vals_income = income_data.columns.values
-		income_data.rename(
+		# manually correct the header titles of aggregate_income
+		hdr_vals_income = aggregate_income.columns.values
+		aggregate_income.rename(
 			columns={
-				income_data.columns[2]: "Pre Tax Allows/Deds",
-				income_data.columns[2]: "Post Tax Allows/Deds",
+				aggregate_income.columns[2]: "Pre Tax Allows/Deds",
+				aggregate_income.columns[2]: "Post Tax Allows/Deds",
 			},
 			inplace=True,
 			copy=False)
 		
+		# perform some type clarification
+		cols = ['Rate', 'Hours', 'Value_Hours', 'Value_Other']
+		for col in cols:
+			latest_week_income[col] = latest_week_income[col].apply(float)
+		cols = []
+		aggregate_income
+
+		# add summative data from latetst_week_income to aggregate_income
+		pd.concat([aggregate_income, latest_week_income.hours])
+		aggregate_income.concat()
 		# return our corrected frames
-		return income_data, income_stats_data
+		return aggregate_income, latest_week_income
 
-	def get_savings(self, acc_frame):
-		date_savings = {}
+	def get_savings(self, acc_frame) -> dict:
+		"""Retrieve the savings transaction data from the bank account data.
+		
+		Search the account frame for savings id's known to exist. Retreive the 
+		tx val, date and description to create a dictionary of tx objects.
+		"""
+
+		# savings dict and associated lists to add to
+		savings_data = dict(zip(self.SAVINGS_IDS, ([] for i in range(len(self.SAVINGS_IDS)))))
+
 		for i in range(len(acc_frame)):
-			# tx for savings always includes the acc_id ref
-			for _id in self.SAVINGS_IDS:
-				desc_val = acc_frame.loc[i, "Description"]
-				tx_val   = acc_frame.loc[i, "Tx"]
-				# test for outgoing as well as unique ref id
-				if _id in desc_val and tx_val > 0:
-					date_savings[desc_val] = [acc_frame.loc[i, "Date"], tx_val]
-		return date_savings
+			try:
+				# tx for savings should includes the acc_id ref
+				for _id in self.SAVINGS_IDS:
+					desc_val = acc_frame.loc[i, "Description"]
+					tx_val   = acc_frame.loc[i, "Tx"]
+					# test for outgoing as well as unique ref id
+					if _id in desc_val and tx_val > 0:
+						savings_data[_id].append(tx_data(desc_val, acc_frame.loc[i, "Date"], tx_val))
+			except Exception:
+			return(dict("1" : tx_data("data_not_found")))
 
-	def get_expenditures(self, acc_frame):
-		len_acc_frame = len(acc_frame)
-		# programatically update expenditures dict and associated lists to maintain
+		return savings_data
+
+	def get_expenditures(self, acc_frame) -> dict:
+		"""Retreive the expenditures transaction data.
+
+		Search the account frame for the expenditure categories and 
+		sub-categories known to exist. Retrieve the tx, val, data and
+		description to create a dictionary of the categories and sub-cat
+		tx objects.
+		"""
+
+		# expenditures dict and associated lists to add to
 		expenditures = dict(zip(self.EXPENDITURES.keys(), ([] for i in range(len(self.EXPENDITURES)))))
 
-		# iterate through cateogries
-		for cat_key, sub_cat_list in self.EXPENDITURES.items():
-			# iterate through dataframe elements
-			for i in range(0, len_acc_frame):
-				# iterate through each sub-cat term in sub_cat_list
-				for sub_cat in sub_cat_list:
-					# INSTRUMENTAL TO BS NOT FINDING CAT'S IS INCLUDING THE STRIP FUNCTION!!!
-					search_term = str(sub_cat.upper()).strip()
-					search_field = str(acc_frame.Description[i].upper())
-					idx = search_field.find(search_term)
-					
-					if idx != -1:
-						expenditures[cat_key].append([acc_frame.Date[i], acc_frame.Tx[i], search_term])
+		try:
+			# iterate through cateogries
+			for cat_key, sub_cat_list in self.EXPENDITURES.items():
+				# iterate through dataframe elements
+				for i in range(0, len(acc_frame)):
+					# iterate through sub-cats
+					for sub_cat in sub_cat_list:
+						# INSTRUMENTAL TO 'NOT FINDING' CAT's IS INCLUDING THE STRIP FUNCTION!!
+						search_term = str(sub_cat.upper()).strip()
+						idx = str(acc_frame.Description[i].upper()).find(search_term)
 						
+						if idx is not -1:
+							expenditures[cat_key].append(
+								tx_data(search_term, acc_frame.Date[i], acc_frame.Tx[i])
+								)
+		except Exception:
+			return(dict("1" : tx_data("data_not_found")))
+				
 		return expenditures
 
 	############################################################################
@@ -762,7 +847,7 @@ class AccountData(accountframe):
 			running_stats['_mean'] = incremental_mean(running_stats['_mean'], tx_vals)
 			running_stats['_min'] = min(tx_vals.min(), running_stats['_min'])
 			running_stats['_max'] = max(tx_vals.max(), running_stats['_max'])
-			running_stats['_tot'] = running_stats['_tot'] + _tot
+			running_stats['_tot'] = running_stats['_tot'] + curr_tot
 
 		curr_date = date.today()
 		curr_week = 1 # we iter from the first week onwards
