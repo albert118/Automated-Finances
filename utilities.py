@@ -1,6 +1,7 @@
 import os
 import sys
 import environ
+from matplotlib.backends.backend_pdf import PdfPages
 
 def safe_environ():
 	"""Check for the environment settings and config file. Attempt to gracefully

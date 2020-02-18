@@ -134,7 +134,7 @@ class AccountData():
 		self.SAVINGS_IDS = [env("ACC_1"), env("ACC_2"), env("ACC_3")]
 
 		# retrieve the bank data frame
-		account_frame = get_bank_data()
+		account_frame = self.get_bank_data()
 		# initialize the account tracking data
 		self.incomes = self.get_income(account_frame) # payslip data retrieved here
 		self.savings = self.get_savings(account_frame)
@@ -149,13 +149,13 @@ class AccountData():
 	# Child classes
 	############################################################################
 	class tx_data():
-		from pd import Timestamp
+		from pandas import Timestamp
 
-		def __init__(description: str, time=Timestamp.today: Timestamp, value=0: float):
+		def __init__(self, description: str, date=Timestamp.today, value=0):
 			"""
 			Parameters
 			----------
-			time : pandas.Timestamp
+			date : pandas.Timestamp
 				the time of the transaction, default today
 			value : float
 				the transaction value, default 0
@@ -163,7 +163,7 @@ class AccountData():
 				a description associated with the transaction
 			"""
 
-			self.time = time
+			self.date = date
 			self.val = value
 			self.desc = str(description)
 
@@ -247,7 +247,7 @@ class AccountData():
 			for i in range(0, len(acc_frame)):
 				if str(sub_cat_list).strip() in acc_frame.Description[i]:
 					incomes[cat_key].append(
-						tx_data(sub_cat_list, acc_frame.Date[i],  acc_frame.Tx[i])
+						self.tx_data(sub_cat_list, acc_frame.Date[i],  acc_frame.Tx[i])
 						)
 
 		return incomes
@@ -343,7 +343,7 @@ class AccountData():
 				input()
 				return 
 
-		def _split_merged_columns(dataframe) -> pandas.DataFrame:
+		def _split_merged_columns(dataframe) -> pd.DataFrame:
 			# check first row 'splittable'
 			hdr_vals = dataframe.columns.tolist()
 			idxs_added = []
@@ -461,12 +461,13 @@ class AccountData():
 			print("Could not split merged data values of income stats data.")
 			traceback.print_stack()
 			raise
+
 		# manually correct the header titles of aggregate_income
 		hdr_vals_income = aggregate_income.columns.values
 		aggregate_income.rename(
 			columns={
-				aggregate_income.columns[2]: "Pre Tax Allows/Deds",
-				aggregate_income.columns[2]: "Post Tax Allows/Deds",
+				aggregate_income.columns[2]: "Pre_Tax_Deds",
+				aggregate_income.columns[2]: "Post_Ta_Deds",
 			},
 			inplace=True,
 			copy=False)
@@ -475,12 +476,10 @@ class AccountData():
 		cols = ['Rate', 'Hours', 'Value_Hours', 'Value_Other']
 		for col in cols:
 			latest_week_income[col] = latest_week_income[col].apply(float)
-		cols = []
-		aggregate_income
 
 		# add summative data from latetst_week_income to aggregate_income
-		pd.concat([aggregate_income, latest_week_income.hours])
-		aggregate_income.concat()
+		aggregate_income["Total_Hours"] = sum(latest_week_income.Hours) 
+
 		# return our corrected frames
 		return aggregate_income, latest_week_income
 
@@ -502,9 +501,9 @@ class AccountData():
 					tx_val   = acc_frame.loc[i, "Tx"]
 					# test for outgoing as well as unique ref id
 					if _id in desc_val and tx_val > 0:
-						savings_data[_id].append(tx_data(desc_val, acc_frame.loc[i, "Date"], tx_val))
+						savings_data[_id].append(self.tx_data(desc_val, acc_frame.loc[i, "Date"], tx_val))
 			except Exception:
-			return(dict("1" : tx_data("data_not_found")))
+				return dict(zip("1", self.tx_data("data_not_found")))
 
 		return savings_data
 
@@ -533,10 +532,10 @@ class AccountData():
 						
 						if idx is not -1:
 							expenditures[cat_key].append(
-								tx_data(search_term, acc_frame.Date[i], acc_frame.Tx[i])
+								self.tx_data(search_term, acc_frame.Date[i], acc_frame.Tx[i])
 								)
 		except Exception:
-			return(dict("1" : tx_data("data_not_found")))
+			return dict(zip("1", self.tx_data("data_not_found")))
 				
 		return expenditures
 
@@ -681,15 +680,15 @@ class AccountData():
 			]
 		list_titles = ["Hourly Distribution", "Other", "Income-Taxation Distribution"]
 		# compelete by generating charts and setting CMAP
-		i = 0
-		for ax in list_ax:
+		for i, ax in enumerate(list_ax):
 			ax.set_prop_cycle(color=[CMAP(j) for j in range(1,10)])
-			pie_chart(label_val_dicts[i], ax, category=list_titles[i], LABELS=False)
+			pie_chart(label_val_dicts[i].keys(), label_val_dicts[i].values(),
+			ax, category=list_titles[i], LABELS=False
+			)
 			fig.add_subplot(ax)
-			i -=-1
 
-		# list conversion needed as Tkinter crashes on np.array() interaction
-		income_raw = list(np.array(self.incomes['primary_income'])[:,1])
+		# read a list from our tx_data object list
+		income_raw = [tx.val for tx in self.incomes['primary_income']]
 		# now use the raw data to create a bar chart of NET income data
 		ax_bar_income_raw = plt.Subplot(fig, inner_bottom[0])
 		bar_labels = ["Week {}".format(i) for i in range(len(income_raw))]
@@ -718,27 +717,27 @@ class AccountData():
 		disp_bottom 	= gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer_grid_spec[1],
 					wspace=0.1, hspace=0.1)
 
-		# create the bar chart savings quick view (think like CommBank's app viz)
-		savings_dates, savings_data = ([] for i in range(2))
-		raw_data = list(self.savings.values())
-		savings_lbls = list(self.savings.keys()) # keys are description values
-		# remember, savings data is a dict where val is a list, so calling values returns a list of lists!
-		for i in range(len(self.savings.values())):
-			sub_list = raw_data[i]
-			savings_data.append(sub_list[1])
-			savings_dates.append(sub_list[0].to_numpy())
-		raw_data.clear() # not needed in memory anymore!! Save the space
-
-		# TODO, not neccessairly the same week, this is intended to be used in the scatter vs. savings in same week
-		# to make it simpler, draw income net from the bank acc. data not the payslip, make the file's time-stamps work for us
-		raw_data = []
-		raw_data = self.incomes["primary_income"] # already a list, comprehension is far easier this time!
-		income_net = [elem[1] for elem in raw_data]
-		savings_perc = [savings_data[i]/income_net[i] for i in range(len(savings_data))]
+		# multiple savings sources, grab the raw data
+		savings_lbls = list(self.savings.keys())
+		savings_data = [[] for i in range(len(savings_lbls))]
+		savings_dates = [[] for i in range(len(savings_lbls))]
 		
-		# adjust the labels to include the dates
+		for i, key in enumerate(self.savings):
+			savings_data[i] = [tx.val for tx in self.savings[key]]
+			savings_dates[i] = [tx.date for tx in self.savings[key]]
+
+		# Add dates to savings labels
 		for i in range(len(savings_lbls)):
 			savings_lbls[i] = str(savings_dates[i]) + ' ' + savings_lbls[i]
+		
+		# TODO, not neccessairly the same week, this is intended to be used in the scatter vs. savings in same week
+		# to make it simpler, draw income net from the bank acc. data not the payslip, make the file's time-stamps work for us
+		
+		income_total_curr = self.incomes['aggregate_income'].Gross
+		total_savings = 0
+		for savings in savings_data:
+			total_savings += sum(savings)
+		savings_perc = total_savings/income_total_curr		
 
 		# bar chart subplot on disp_bottom
 		ax_savings_bar	= plt.Subplot(fig, disp_bottom[0])
@@ -753,7 +752,8 @@ class AccountData():
 		ax_savings_trend.set_ylabel("Savings Data")
 		ax_savings_trend.set_xlabel("Savings Date")
 		fig.add_subplot(ax_savings_trend)
-
+		plt.suptitle("Savings Statistics")
+		
 		return fig
 
 	def display_expenditure_stats(self, figsize=(10,10)):
@@ -773,26 +773,24 @@ class AccountData():
 
 		key_counter = 0
 		for key, term_list in self.expenditures.items():
-			
-			labels = {} # labels and associated cost to use
+			label_vals = {}
 			for tx in term_list:
-				new_value = tx[1]
-				new_label = tx[2]
-				if new_label not in labels:
-					labels[new_label] = new_value
+				new_value = tx.val
+				new_label = tx.desc
+				if new_label not in label_vals:
+					label_vals[new_label] = new_value
 				else:
-					labels[new_label] += new_value
+					label_vals[new_label] += new_value
 
 			# new category creates a new axis on the upper plot region
 			if key_counter < col_count:
 				axN = fig.add_subplot(inner_top[0, key_counter]) # this is also one of the cleaner ways to create the axis
 			else:
-				axN = fig.add_subplot(inner_top[1, key_counter-col_count]) # this is also one of the cleaner ways to create the axis
+				axN = fig.add_subplot(inner_top[1, key_counter - col_count]) # this is also one of the cleaner ways to create the axis
 
 			axN.set_prop_cycle(color=[CMAP(i) for i in range(1,10)])
-			pie_chart(labels, axN, category=key)
-
-			totals.append(sum(labels.values()))
+			pie_chart(label_vals.keys(), label_vals.values(), axN, category=key)
+			totals.append(sum(label_vals.values()))
 			key_counter -=- 1
 
 		plt.suptitle("Expenditure Statistics")
@@ -803,8 +801,6 @@ class AccountData():
 		ax_rect.set_xlabel('Category of Expenditure')
 		fig.add_subplot(ax_rect)
 
-		# later, add paycheck stuff here too - ADP does it well, do the same pie-chart
-		# and check MoneyTree, great visualisations on that too
 		return fig
 
 	############################################################################
@@ -960,7 +956,7 @@ def incremental_mean(prev_mean, new_vals):
 
 	return mean
 
-def pie_chart(label_val_dict, ax, category=None, LABELS=None, size=0.5, font_size=9, rad=1):
+def pie_chart(labels, values, ax, category=None, LABELS=None, size=0.5, font_size=9, rad=1):
 	"""Pie chart constructor with custom design.
 	
 	Pie chart constructor for given labels and sizes. This generates 'donut' pie charts with
@@ -968,8 +964,11 @@ def pie_chart(label_val_dict, ax, category=None, LABELS=None, size=0.5, font_siz
 
 	Parameters
 	----------
-	label_val_dict : dict
-		the label-value paired dictionary to plot
+	labels : list : str
+		list of string labels for the wedges
+	
+	values : list : float
+		list of float values to create chart with
 
 	ax : matplotlib.axes
 		the axis object to bind to
@@ -992,7 +991,7 @@ def pie_chart(label_val_dict, ax, category=None, LABELS=None, size=0.5, font_siz
 
 	# initially set labels as none, update with custom legend after
 	wedges, texts, autotexts = ax.pie(
-		[math.fabs(x) for x in label_val_dict.values()], 
+		[math.fabs(x) for x in values], 
 		labels=None, autopct="%1.1lf%%", 
 		shadow=False, radius=rad, pctdistance=(rad+rad*0.1),
 		wedgeprops=dict(width=size, edgecolor='w'))
@@ -1000,9 +999,9 @@ def pie_chart(label_val_dict, ax, category=None, LABELS=None, size=0.5, font_siz
 	# creating the legend labels, use the label keys initially passed to us
 	if LABELS is True:
 		# use a bbox to set legend below pie chart for improved visibility if legend enabled
-		ax.legend(wedges, loc="lower center", labels=label_val_dict.keys(), bbox_to_anchor=(1,1))
+		ax.legend(wedges, loc="lower center", labels=labels, bbox_to_anchor=(1,1))
 	else:
-		ax.legend(wedges, loc="lower center", labels=label_val_dict.keys(), bbox_to_anchor=(rad*0.2, -0.4))
+		ax.legend(wedges, loc="lower center", labels=labels, bbox_to_anchor=(rad*0.2, -0.4))
 
 	plt.setp(autotexts, size=font_size, weight="bold")
 	
@@ -1075,7 +1074,7 @@ def scatter_plotter(X, Y, ax, area=10, ALPHA=0.9, _cmap=CMAP):
 
 def normaliser(x):
 	"""Apply a simple min-max normalisation to the 1D data X."""
-	
+
 	if len(x) < 2:
 		raise ValueError
 	else:

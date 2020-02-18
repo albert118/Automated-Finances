@@ -4,7 +4,6 @@ import cba_scraper
 import utilities
 
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
 import pandas as pd
 from watchdog.observers import Observer
 
@@ -12,9 +11,10 @@ from datetime import datetime
 import os
 import time
 
+DAY = 86400
 INPUT_FOLDER =  "D:\\Downloads"
 BASE_DIR = os.getcwd()
-SLEEP_CTR = 86400
+SLEEP_CTR = 10
 
 # setup event handlers
 downloads_handler = mover.DownloadEventHandler()
