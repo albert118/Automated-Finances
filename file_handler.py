@@ -26,10 +26,8 @@ def update_file_mover_globals():
 	try:
 		CRITS = env.list("CRITS")
 		MIMES = env.list("MIMES")
-		PARENT_DOWNLOAD_DIR = os.path.abspath(str(env("PARENT_DOWNLOAD_DIR")))
+		PARENT_DOWNLOAD_DIR = str(env("PARENT_DOWNLOAD_DIR"))
 		DOWN_SUB_FOLDERS = env.list("DOWN_SUB_FOLDERS")
-		for i in range(len(DOWN_SUB_FOLDERS)):
-			DOWN_SUB_FOLDERS[i] = os.path.abspath(DOWN_SUB_FOLDERS[i])
 	except KeyError:
 		return False
 	
@@ -53,7 +51,7 @@ def check_match_crit(filename):
 	"""
 
 	try:
-		crit_comp = CRITS.index(filename.lower())
+		crit_comp = CRITS.index(filename)
 	except ValueError:
 		return False
 	else:
@@ -81,16 +79,18 @@ def file_exists(file_dest, filename, duplicate_file_ctr):
 		new unique filename incl. file dest dir
 	"""
 	
-	file_exists = os.path.isfile(os.path.join(file_dest, filename))
-	
 	try:
+		date = datetime.now().strftime("%d-%m-%Y")
+		curr_type = filename[filename.find('.'):]
+		new_name = date + curr_type
+		file_exists = os.path.isfile(os.path.join(file_dest, new_name))
+
 		while file_exists:
 			# handle duplicate named files by incrementing a counter
-			duplicate_file_ctr -=- 1
-			curr_type = filename[filename.find('.'), :]
-			date = datetime.now().strftime("%d-%m-%Y")
-			new_name = date + "_" + duplicate_file_ctr + curr_type
+			duplicate_file_ctr -=- 1	
+			new_name = date + "_" + str(duplicate_file_ctr) + curr_type
 			file_exists = os.path.isfile(os.path.join(file_dest, new_name))
+		return os.path.join(file_dest, new_name)
 	except OverflowError:
 		if duplicate_file_ctr > (10**5):
 			duplicate_file_ctr = 1 
@@ -101,8 +101,7 @@ def file_exists(file_dest, filename, duplicate_file_ctr):
 		return file_exists(file_dest, fn, duplicate_file_ctr)
 	except RecursionError:
 		return os.path.join(file_dest, "ERROR"+curr_type)
-
-	return os.path.join(file_dest, new_name)
+		
 
 ###############################################################
 # Event handling logic
@@ -118,16 +117,7 @@ class EnvironmentFileHandler(FileSystemEventHandler):
 class DownloadEventHandler(FileSystemEventHandler):
 	"""The download event handler object"""
 
-	update_file_mover_globals()
-	folder_to_track = PARENT_DOWNLOAD_DIR
-	down_subfolders = DOWN_SUB_FOLDERS
-	target_folders = []
-
-	# collect the target folders
-	for folder in down_subfolders:
-		target_folders.append(os.path.join(folder_to_track, os.path.abspath(folder)))
-	
-	def sort_downloads(self):
+	def on_modified(self, event):
 		""" Collect subfolders in the target directory and sub_folders listed. 
 
 		Dynamically observe new file's type and any matching criteria. Move them
@@ -140,10 +130,18 @@ class DownloadEventHandler(FileSystemEventHandler):
 		
 		Duplicate files are renamed with a counter: 1,2,3 ... n
 		"""
+		update_file_mover_globals()
+		folder_to_track = PARENT_DOWNLOAD_DIR
+		down_subfolders = DOWN_SUB_FOLDERS
+		target_folders = []
 
-		default_fn = "__unknown__.uknw"
+		# collect the target folders
+		for folder in down_subfolders:
+			target_folders.append(os.path.join(folder_to_track, folder))
+		
+		# default_fn = "__unknown__.uknw"
 
-		for filename in os.listdir(self.folder_to_track):
+		for filename in os.listdir(folder_to_track):
 			# first check the filetypes for mimetypes
 			f_type = filename[filename.find('.'):]
 			if f_type not in MIMES:
@@ -151,33 +149,25 @@ class DownloadEventHandler(FileSystemEventHandler):
 
 			# now check if we have some matching criteria to sort by
 			new_name = filename
-			key_word = check_match_crit(filename)
+			# key_word = check_match_crit(filename)
 			
-			if not key_word:
-				new_name = default_fn
+			# if not key_word:
+			# 	new_name = default_fn
 
-			if key_word is CRITS[0]:
-				target_save_dir = self.target_folders[0]
-			elif key_word is CRITS[1]:
-				target_save_dir = self.target_folders[1]
+			if f_type == MIMES[0]:
+				target_save_dir = target_folders[0]
+			elif f_type == MIMES[1]:
+				target_save_dir = target_folders[1]
 			else: 
-				target_save_dir = os.path.join(self.folder_to_track, "Finance")
+				target_save_dir = os.path.join(folder_to_track, "Finance")
 
 			duplicate_file_ctr = 1
 			# create the new file destination, checking for duplicates and including a datetime value
 			new_destination = file_exists(target_save_dir, new_name, duplicate_file_ctr)
-			src = os.path.join(self.folder_to_track, filename)
+			src = os.path.join(folder_to_track, filename)
 			try:
 				os.rename(src, new_destination)
 			except NotImplementedError:
 				return False
 			except TypeError:
 				return False
-
-	def on_modified(self, event):
-		"""Modification of the target directory folder_to_track runs this.
-		
-		Sort files, 
-		"""
-		
-		self.sort_files()

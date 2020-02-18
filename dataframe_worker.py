@@ -8,7 +8,7 @@ import matplotlib.gridspec as gridspec
 import matplotlib.patches as mpatches
 
 import environ
-from datetime import date
+from datetime import datetime
 import math
 import os
 import traceback
@@ -106,6 +106,8 @@ class AccountData():
 		"""
 		# ensure safe env on account object instantiation
 		env = utilities.safe_environ()
+		self.BASE_DIR = env("PARENT_DOWNLOAD_DIR")
+		self.SUB_FOLDERS = env.list("DOWN_SUB_FOLDERS")
 
 		########################################################################
 		# Categories and Search terms
@@ -181,8 +183,11 @@ class AccountData():
 		account_frame : pandas.DataFrame
 			The class account frame. Essential input that must be called
 		"""
-
-		account_frame = pd.read_csv("CSVData.csv", names=["Date","Tx", "Description", "Curr_Balance"])
+		
+		f_dir = os.path.join(self.BASE_DIR, self.SUB_FOLDERS[0])
+		fn = datetime.now().strftime("%d-%m-%Y")+".csv"
+		data = os.path.join(f_dir, fn)
+		account_frame = pd.read_csv(data, names=["Date","Tx", "Description", "Curr_Balance"])
 		# format the account df and perform date-time refactoring
 		account_frame.Description = account_frame.Description.apply(str.upper)
 		account_frame.Date = pd.to_datetime(account_frame.Date, format="%d/%m/%Y")
@@ -255,7 +260,7 @@ class AccountData():
 
 		return incomes
 
-	def get_payslips(self, payslip_name='payslip.pdf', true_col_header_index = 5):
+	def get_payslips(self, true_col_header_index = 5):
 		"""Retreive the payslip pdf and create aggregate and latest_week frames.
 		
 		Convert "structured" pdf to frames for easy use later, this is lots of
@@ -376,16 +381,33 @@ class AccountData():
 					i -=- 1
 
 			# start from 1, skip the headers
-			for i in range(0,len(dataframe)):
+			for i in range(len(dataframe)):
 				row_vals = dataframe.iloc[i].tolist()
-				# we know from our previous insertion which col idx's require splitting
+				# we know from our previous insertion which col idx's require splitting,
+				# as they were recording on making blank columns
 				for idx in idxs_added:
-					vals = dataframe.iloc[i, idx].split()
-					if len(vals) > 2:
-						bool_arr = [type(elem) is not str for elem in vals]
-						num_val = vals.pop(bool_arr.index(False))
-						str_val = '_'.join(vals)
-						vals = [num_val, str_val]
+					# if left or right half of frame different lengths
+					# data cant be split (nan nan)
+					data_point = dataframe.iloc[i, idx]
+					if type(data_point) == float:
+						continue				
+					vals = data_point.split()
+
+					try:
+						# TODO : rewrite to fix typing issue, all vals look like strings
+						# try to convert, if it fails then they're strings
+						bool_arr = np.array([type(elem) is not str for elem in vals])
+						test = np.array(vals)
+						num_vals = test[bool_arr]
+						if len(num_vals) == 2:
+							vals = [num_vals[0], num_vals[1]]
+						elif len(num_vals) == 1:
+							str_val = '_'.join(vals)
+							vals = [num_vals[0], str_val]
+						else:
+							raise ValueError
+					except ValueError:	
+						vals = [0,  '_'.join(vals)]
 
 					# format our description value
 					if vals[1] is type(str):
@@ -395,7 +417,6 @@ class AccountData():
 					dataframe.iloc[i, idx + 1] = vals[1]
 					# then replace the merged values with the single column value
 					dataframe.iloc[i, idx] = vals[0]
-			test_cols_list = ['Description', 'Rate', 'Hours', 'Value', 'Description3', 'nan', 'Tax_Ind', 'Value']
 			if dataframe.columns.duplicated().any()	:
 				dataframe.columns = ['Description_Hours', 'Rate', 'Hours', 'Value_Hours', 'Description_Other', 'nan', 'Tax_Ind', 'Value_Other']
 				dataframe = dataframe.drop("nan", axis=1)
@@ -408,6 +429,9 @@ class AccountData():
 		latest_week_income = pd.DataFrame()
 		aggregate_income_header_idx = None
 		# retrieve the payslip, uses the tabula pdf_reader
+		f_dir = os.path.join(self.BASE_DIR, self.SUB_FOLDERS[1])
+		fn = datetime.now().strftime("%d-%m-%Y")+".pdf"
+		payslip_name = os.path.join(f_dir, fn)
 		data = read_pdf(payslip_name)[0]
 
 		# drop the NaN col generated and get the default column titles
@@ -440,8 +464,6 @@ class AccountData():
 					latest_week_income, true_col_header_index, cols_default_headers)
 				aggregate_income = _rename_headers(
 					aggregate_income, aggregate_income_header_idx, cols_default_headers)
-
-
 		except Exception as e:
 			print(type(e))
 			if aggregate_income_header_idx is None:
@@ -463,7 +485,7 @@ class AccountData():
 			print(type(e))
 			print("Could not split merged data values of income stats data.")
 			traceback.print_stack()
-			raise
+			pass
 
 		# manually correct the header titles of aggregate_income
 		hdr_vals_income = aggregate_income.columns.values
@@ -699,7 +721,7 @@ class AccountData():
 		bar_chart(bar_labels, income_raw, ax_bar_income_raw)
 		ax_bar_income_raw.set_ylabel('Income')
 		ax_bar_income_raw.set_xlabel('Week of Income')
-
+		plt.suptitle("Income Statistics")
 		fig.add_subplot(ax_bar_income_raw)
 		return fig
 
@@ -733,6 +755,7 @@ class AccountData():
 		for i in range(len(savings_data)):
 			for j in range(len(savings_data[i])):
 				savings_lbls[i].append(savings_dates[i][j] + ' ' + savings_lbls[i][j])
+			del(savings_lbls[i][0])
 
 		# TODO, not neccessairly the same week, this is intended to be used in the scatter vs. savings in same week
 		# to make it simpler, draw income net from the bank acc. data not the payslip, make the file's time-stamps work for us
@@ -1068,14 +1091,15 @@ def scatter_plotter(X, Y, ax, area=10, ALPHA=0.9, _cmap=CMAP):
 		optional, override the global colour map and apply a custom option
 	"""
 
-	# if area <= 1 and area >= 0:
-	# 	sizing = [pow(a, -0.9) for a in area]
-	# else:
-	# 	sizing = [pow(a, 0.9) for a in area]
-
 	ax.scatter(X, Y, c='black', cmap=_cmap, alpha=ALPHA)
-	# ax.set_ylim([np.asarray(Y).min(), np.asarray(Y).max()])
-	# ax.set_xlim([np.asarray(X).min(), np.asarray(X).max()])
+	if len(Y) is 1:
+		ax.set_ylim([Y[0]*0.9, Y[0]*1.1])
+	else:
+		ax.set_ylim([np.asarray(Y).min(), np.asarray(Y).max()])
+	if len(X) is 1:
+		pass
+	else:
+		ax.set_xlim([np.asarray(X).min(), np.asarray(X).max()])
 
 def normaliser(x):
 	"""Apply a simple min-max normalisation to the 1D data X."""

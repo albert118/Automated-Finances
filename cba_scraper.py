@@ -47,12 +47,15 @@ def get_acc_export(driver):
 
 	try:
 		driver.find_element_by_id("ctl00_CustomFooterContentPlaceHolder_lbExport1").click()
+		driver.find_element_by_xpath('/html/body/form/div[6]/div/div/div[3]/div/div/div/fieldset/div[2]/div[2]/a').click()
 		print("Click: Exporting Transactions")
 
 	except exceptions.StaleElementReferenceException as e:
 		print(e)
 		driver.implicitly_wait(10)
 		driver.find_element_by_xpath('/html/body/form/div[6]/div/div/div[3]/div/div/div/fieldset/div[2]/div[2]/a').click()
+	except exceptions.ElementNotInteractableException:
+		pass 
 
 def get_account_data():
 	"""The scraper for grabbing data from Netbank and Super portals.
@@ -75,7 +78,6 @@ def get_account_data():
 				)
 
 	with Chrome(webdriver) as driver:
-		driver.maximize_window()
 		if URL_NETBANK_LOGIN is None:
 			raise Exception('''
 					The CBA login URL was not found, 
@@ -115,3 +117,4 @@ def get_account_data():
 		# access the CSV and download it once the account is selected...
 		# this is a funky UI process. DO NOT MESS WITH IT
 		get_acc_export(driver)
+		driver.quit()
