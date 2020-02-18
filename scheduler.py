@@ -32,8 +32,7 @@ try:
 	while True:
 		time.sleep(SLEEP_CTR)
 		cba_scraper.get_account_data()
-		df = pd.read_csv("CSVData.csv", names=["Date","Tx", "Description", "Curr_Balance"])
-		account = dataframe_worker.AccountData(df)
+		account = dataframe_worker.AccountData()
 		utilities.pdf_maker(account)
 except KeyboardInterrupt:
 	observer.stop()

@@ -1,8 +1,8 @@
+import utilities
+
 import pandas as pd
 import numpy as np
-
 from tabula import read_pdf
-
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.patches as mpatches
@@ -15,10 +15,7 @@ import traceback
 import warnings
 import sys
 
-import utilities
-
-# Global colour map variable
-CMAP =  plt.get_cmap('Paired')
+CMAP =  plt.get_cmap('Paired') # Global colour map variable
 
 class AccountData():
 	"""Track several user finance details and accounts.
@@ -97,10 +94,11 @@ class AccountData():
 		>>> a.display_savings_stats()
 	""" 
 
-	def __init__(self, account_frame, payslip_frame=None):
+	def __init__(self, **kwargs):
 		"""
 		Parameters
 		----------
+		* optional kwarg overrides to add these for testing, etc... *
 		account_frame : pandas.DataFrame
 			Banking data input
 		payslip_frame : pandas.DataFrame
@@ -135,19 +133,17 @@ class AccountData():
 
 		self.SAVINGS_IDS = [env("ACC_1"), env("ACC_2"), env("ACC_3")]
 
-		# format the account df and perform date-time refactoring
-		account_frame.Description = account_frame.Description.apply(str.upper)
-		account_frame.Date=pd.to_datetime(account_frame.Date, format="%d/%m/%Y")
-
+		# retrieve the bank data frame
+		account_frame = get_bank_data()
 		# initialize the account tracking data
-		self.incomes = self.get_income(account_frame)
+		self.incomes = self.get_income(account_frame) # payslip data retrieved here
 		self.savings = self.get_savings(account_frame)
 		self.expenditures = self.get_expenditures(account_frame)
 
 		# we need to maintain a list of stats for every sub category and its
 		# relevant stats dicts/lists, dynamically configure this based on cat's 
 		# defined for the class above...
-		self.curr_income_stats, self.curr_savings_stats, self.curr_expenditure_stats = ([] for i in range(3))
+		# self.curr_income_stats, self.curr_savings_stats, self.curr_expenditure_stats = ([] for i in range(3))
 
 	############################################################################
 	# Child classes
@@ -174,7 +170,22 @@ class AccountData():
 	############################################################################
 	# Getters
 	############################################################################
-	
+	def get_bank_data(self):
+		"""Retrieve the latest bank data CSV scrape.
+		
+		Returns
+		----------
+		account_frame : pandas.DataFrame
+			The class account frame. Essential input that must be called
+		"""
+
+		account_frame = pd.read_csv("CSVData.csv", names=["Date","Tx", "Description", "Curr_Balance"])
+		# format the account df and perform date-time refactoring
+		account_frame.Description = account_frame.Description.apply(str.upper)
+		account_frame.Date = pd.to_datetime(account_frame.Date, format="%d/%m/%Y")
+
+		return account_frame
+
 	def get_income(self, acc_frame) -> dict:
 		"""Get the user's bank details on income and combine with payroll data.
 		
@@ -950,30 +961,33 @@ def incremental_mean(prev_mean, new_vals):
 	return mean
 
 def pie_chart(label_val_dict, ax, category=None, LABELS=None, size=0.5, font_size=9, rad=1):
-	"""Pie chart constructor for given labels and sizes. This generates 'donut' pie charts with
+	"""Pie chart constructor with custom design.
+	
+	Pie chart constructor for given labels and sizes. This generates 'donut' pie charts with
 	percentage value labelling and styling features.
 
 	Parameters
 	----------
-	label_val_dict: dictionary
+	label_val_dict : dict
 		the label-value paired dictionary to plot
-	ax: pyplot axis
+
+	ax : matplotlib.axes
 		the axis object to bind to
-	category: string
+
+	category : str
 		the category being plotted, if None, no title is set
-	LABELS: boolean
+
+	LABELS : Boolean
 		LABELS True sets default labels (top right), False or None sets lower center
-	size: float
+
+	size : float
 		controls the size of the wedges generated for the 'donut' pies
-	font_size: int
+
+	font_size : int
 		font size of labelling
-	rad: float
+
+	rad : float
 		the radius of the pie chart. The inner radius (wedge rad) is scaled from this
-	
-	Returns
-	----------
-	fig, pyplot figure
-		the generated figure object
 	"""
 
 	# initially set labels as none, update with custom legend after
@@ -999,23 +1013,20 @@ def pie_chart(label_val_dict, ax, category=None, LABELS=None, size=0.5, font_siz
 
 def bar_chart(labels, values, ax, label=None):
 	"""Bar chart constructor for given labels and sizes.
-	Returns the generated axis object.
 
 	Parameters
 	----------
 	labels: list
 		the labels to be applied to the chart
+
 	values: list
 		the values to be charted
-	ax: pyplot axis
+
+	ax: matplotlib.axes
 		the axis object to bind to
-	label: string
+
+	label: str
 		optional header title for the bar chart
-	
-	Returns
-	----------
-	fig, pyplot figure
-		the generated figure object
 	"""
 
 	width = 1
@@ -1031,29 +1042,26 @@ def bar_chart(labels, values, ax, label=None):
 	ax.set_xticks(scaled_x)
 	ax.set_xticklabels([label.capitalize().replace('_', ' ') for label in labels])
 	auto_label(rects, ax,font_size)
-	return
 
 def scatter_plotter(X, Y, ax, area=10, ALPHA=0.9, _cmap=CMAP):
-	"""The scatterplot constructor. Generates a scatter plot with
-	auto-scaling values, based on area. Also applies styling and 
-	axis limiting.
+	"""Scatter plot constructor for given data and custom design.
+	
+	Generates a scatter plot with auto-scaling values, based on area. 
+	Also applies styling and axis limiting.
 
 	Parameters
 	----------
 	X: list
 	Y: list
 		values to be plotted to appropriate axes
+
 	area: int
 		optional, scaling value to plot a third dimension onto the graph
 	ALPHA: float
 		optional, sets scatter points alpha setting
+
 	_cmap: colour map object
 		optional, override the global colour map and apply a custom option
-	
-	Returns
-	----------
-	fig, pyplot figure
-		the generated figure object
 	"""
 
 	if all(area) <= 1 and all(area) >= 0:
@@ -1064,9 +1072,10 @@ def scatter_plotter(X, Y, ax, area=10, ALPHA=0.9, _cmap=CMAP):
 	ax.scatter(X, Y, s=sizing, c='black', cmap=_cmap, alpha=ALPHA)
 	ax.set_ylim([np.asarray(Y).min(), np.asarray(Y).max()])
 	ax.set_xlim([np.asarray(X).min(), np.asarray(X).max()])
-	return
 
 def normaliser(x):
+	"""Apply a simple min-max normalisation to the 1D data X."""
+	
 	if len(x) < 2:
 		raise ValueError
 	else:

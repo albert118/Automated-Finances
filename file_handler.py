@@ -88,7 +88,7 @@ def file_exists(file_dest, filename, duplicate_file_ctr):
 			# handle duplicate named files by incrementing a counter
 			duplicate_file_ctr -=- 1
 			curr_type = filename[filename.find('.'), :]
-			date = datetime.now().strftime("%Y-%m-%d")
+			date = datetime.now().strftime("%d-%m-%Y")
 			new_name = date + "_" + duplicate_file_ctr + curr_type
 			file_exists = os.path.isfile(os.path.join(file_dest, new_name))
 	except OverflowError:
@@ -114,7 +114,6 @@ class EnvironmentFileHandler(FileSystemEventHandler):
 		"""Modification of the target directory folder_to_track runs this."""
 
 		update_file_mover_globals()
-
 
 class DownloadEventHandler(FileSystemEventHandler):
 	"""The download event handler object"""
@@ -182,5 +181,3 @@ class DownloadEventHandler(FileSystemEventHandler):
 		"""
 		
 		self.sort_files()
-
-
