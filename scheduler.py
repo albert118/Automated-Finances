@@ -14,7 +14,7 @@ import time
 DAY = 86400
 INPUT_FOLDER =  "D:\\Downloads"
 BASE_DIR = os.getcwd()
-SLEEP_CTR = 10
+SLEEP_CTR = DAY
 
 # setup event handlers
 downloads_handler = mover.DownloadEventHandler()
@@ -30,10 +30,12 @@ observer.schedule(local_env_handler, BASE_DIR, recursive=False)
 observer.start()
 try:
 	while True:
-		time.sleep(SLEEP_CTR)
 		cba_scraper.get_account_data()
+		# df = pd.read_csv("CSVData.csv", names=["Date","Tx", "Description", "Curr_Balance"])
+		# **{"account_frame": df}
 		account = dataframe_worker.AccountData()
 		utilities.pdf_maker(account)
+		time.sleep(SLEEP_CTR)
 except KeyboardInterrupt:
 	observer.stop()
 

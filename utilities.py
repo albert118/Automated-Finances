@@ -2,6 +2,7 @@ import os
 import sys
 import environ
 from matplotlib.backends.backend_pdf import PdfPages
+from datetime import datetime
 
 def safe_environ():
 	"""Check for the environment settings and config file. Attempt to gracefully
@@ -61,3 +62,5 @@ def pdf_maker(account):
 		d['Keywords'] = 'Finance'
 		d['CreationDate'] = datetime.today()
 		d['ModDate'] = datetime.today()
+
+	os.system("output.pdf")

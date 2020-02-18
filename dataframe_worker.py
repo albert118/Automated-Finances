@@ -134,7 +134,10 @@ class AccountData():
 		self.SAVINGS_IDS = [env("ACC_1"), env("ACC_2"), env("ACC_3")]
 
 		# retrieve the bank data frame
-		account_frame = self.get_bank_data()
+		if "account_frame" in kwargs:
+			account_frame = kwargs["account_frame"]
+		else:
+			account_frame = self.get_bank_data()
 		# initialize the account tracking data
 		self.incomes = self.get_income(account_frame) # payslip data retrieved here
 		self.savings = self.get_savings(account_frame)
@@ -143,7 +146,7 @@ class AccountData():
 		# we need to maintain a list of stats for every sub category and its
 		# relevant stats dicts/lists, dynamically configure this based on cat's 
 		# defined for the class above...
-		# self.curr_income_stats, self.curr_savings_stats, self.curr_expenditure_stats = ([] for i in range(3))
+		self.curr_income_stats, self.curr_savings_stats, self.curr_expenditure_stats = ([] for i in range(3))
 
 	############################################################################
 	# Child classes
@@ -163,7 +166,7 @@ class AccountData():
 				a description associated with the transaction
 			"""
 
-			self.date = date
+			self.date = date.strftime("%d-%m-%Y")
 			self.val = value
 			self.desc = str(description)
 
@@ -718,37 +721,39 @@ class AccountData():
 					wspace=0.1, hspace=0.1)
 
 		# multiple savings sources, grab the raw data
-		savings_lbls = list(self.savings.keys())
-		savings_data = [[] for i in range(len(savings_lbls))]
-		savings_dates = [[] for i in range(len(savings_lbls))]
+		savings_lbls = [[key] for key in self.savings.keys()]
+		savings_data = [[] for i in range(len(self.savings))]
+		savings_dates = [[] for i in range(len(self.savings))]
 		
 		for i, key in enumerate(self.savings):
 			savings_data[i] = [tx.val for tx in self.savings[key]]
 			savings_dates[i] = [tx.date for tx in self.savings[key]]
 
 		# Add dates to savings labels
-		for i in range(len(savings_lbls)):
-			savings_lbls[i] = str(savings_dates[i]) + ' ' + savings_lbls[i]
-		
+		for i in range(len(savings_data)):
+			for j in range(len(savings_data[i])):
+				savings_lbls[i].append(savings_dates[i][j] + ' ' + savings_lbls[i][j])
+
 		# TODO, not neccessairly the same week, this is intended to be used in the scatter vs. savings in same week
 		# to make it simpler, draw income net from the bank acc. data not the payslip, make the file's time-stamps work for us
-		
-		income_total_curr = self.incomes['aggregate_income'].Gross
+		income_total_curr = float(self.incomes['aggregate_income'].Gross[0])
 		total_savings = 0
+
 		for savings in savings_data:
 			total_savings += sum(savings)
 		savings_perc = total_savings/income_total_curr		
 
+		# TODO : Add support for graphing all 3 sub cats for accounts (combined or seperate whatever...)
 		# bar chart subplot on disp_bottom
 		ax_savings_bar	= plt.Subplot(fig, disp_bottom[0])
-		bar_chart(savings_lbls, savings_data, ax_savings_bar)
+		bar_chart(savings_lbls[0], savings_data[0], ax_savings_bar)
 		ax_savings_bar.set_ylabel('Savings')
 		ax_savings_bar.set_xlabel('Date and Description')
 		fig.add_subplot(ax_savings_bar)
 
 		# now create the trendline and place it in disp_top
 		ax_savings_trend = plt.Subplot(fig, disp_top[0])
-		scatter_plotter(savings_dates, savings_data, ax_savings_trend, area=savings_perc)
+		scatter_plotter(savings_dates[0], savings_data[0], ax_savings_trend, area=savings_perc)
 		ax_savings_trend.set_ylabel("Savings Data")
 		ax_savings_trend.set_xlabel("Savings Date")
 		fig.add_subplot(ax_savings_trend)
@@ -1063,14 +1068,14 @@ def scatter_plotter(X, Y, ax, area=10, ALPHA=0.9, _cmap=CMAP):
 		optional, override the global colour map and apply a custom option
 	"""
 
-	if all(area) <= 1 and all(area) >= 0:
-		sizing = [pow(a, -0.9) for a in area]
-	else:
-		sizing = [pow(a, 0.9) for a in area]
+	# if area <= 1 and area >= 0:
+	# 	sizing = [pow(a, -0.9) for a in area]
+	# else:
+	# 	sizing = [pow(a, 0.9) for a in area]
 
-	ax.scatter(X, Y, s=sizing, c='black', cmap=_cmap, alpha=ALPHA)
-	ax.set_ylim([np.asarray(Y).min(), np.asarray(Y).max()])
-	ax.set_xlim([np.asarray(X).min(), np.asarray(X).max()])
+	ax.scatter(X, Y, c='black', cmap=_cmap, alpha=ALPHA)
+	# ax.set_ylim([np.asarray(Y).min(), np.asarray(Y).max()])
+	# ax.set_xlim([np.asarray(X).min(), np.asarray(X).max()])
 
 def normaliser(x):
 	"""Apply a simple min-max normalisation to the 1D data X."""
