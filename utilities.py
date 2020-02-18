@@ -25,3 +25,38 @@ def safe_environ():
 		return env
 	except FileNotFoundError:
 		return sys.exit(default_warn)
+
+
+def pdf_maker(account):
+	"""Generate the output pdf for review.
+	
+	Parameters
+	----------
+	account : dataframe_worker.AccountData
+		AccountData object
+	"""
+
+	# Get the figures to save
+	if len(account.savings) == 0:
+		figs = [
+		account.display_income_stats(),
+		account.display_expenditure_stats(),
+		]
+	else:
+		figs = [
+		account.display_income_stats(),
+		account.display_expenditure_stats(),
+		account.display_savings_stats(),
+		]
+
+	with PdfPages("output.pdf") as pdf:
+		for fig in figs:
+			pdf.savefig(fig, bbox_inches='tight', papertype='a4')
+		
+		d = pdf.infodict()
+		d['Title'] = 'Personal Finance Report'
+		d['Author'] = 'ALBERT-DEV'
+		d['Subject'] = 'personal finance review'
+		d['Keywords'] = 'Finance'
+		d['CreationDate'] = datetime.today()
+		d['ModDate'] = datetime.today()

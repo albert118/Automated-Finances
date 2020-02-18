@@ -133,7 +133,7 @@ class AccountData():
 			'enterainment': 		env.list("ENTERTAINMENT"),
 		}
 
-		self.SAVINGS_IDS = [env("CACHE_ID"), env("SAVINGS_ID")]
+		self.SAVINGS_IDS = [env("ACC_1"), env("ACC_2"), env("ACC_3")]
 
 		# format the account df and perform date-time refactoring
 		account_frame.Description = account_frame.Description.apply(str.upper)
