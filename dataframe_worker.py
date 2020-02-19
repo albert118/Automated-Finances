@@ -382,7 +382,7 @@ class AccountData():
 
 			# start from 1, skip the headers
 			for i in range(len(dataframe)):
-				row_vals = dataframe.iloc[i].tolist()
+				# row_vals = dataframe.iloc[i].tolist()
 				# we know from our previous insertion which col idx's require splitting,
 				# as they were recording on making blank columns
 				for idx in idxs_added:
@@ -390,37 +390,43 @@ class AccountData():
 					# data cant be split (nan nan)
 					data_point = dataframe.iloc[i, idx]
 					if type(data_point) == float:
-						continue				
+						continue # skip nan types		
 					vals = data_point.split()
-
 					try:
-						# TODO : rewrite to fix typing issue, all vals look like strings
-						# try to convert, if it fails then they're strings
-						bool_arr = np.array([type(elem) is not str for elem in vals])
-						test = np.array(vals)
-						num_vals = test[bool_arr]
-						if len(num_vals) == 2:
-							vals = [num_vals[0], num_vals[1]]
-						elif len(num_vals) == 1:
-							str_val = '_'.join(vals)
-							vals = [num_vals[0], str_val]
+						string_val = ''
+						# vals is a split arr, combined string, float vals
+						for i in range(len(vals)):
+							try:
+								vals[i] = float(vals[i])
+							except ValueError: 
+								# val was string, apply string formating
+								string_val += ' ' + vals.pop(i)
+						# apply string formating
+						string_val = string_val.strip().replace('*', '').lower().capitalize()
+						if len(vals) > 2:
+							raise RuntimeError
 						else:
-							raise ValueError
-					except ValueError:	
-						vals = [0,  '_'.join(vals)]
+							vals = tuple(vals.append(string_val))
+					except RuntimeError:
+						# raised by too many floats occuring
+						# or we missed nan vals somehow
+						pass
+					except ValueError:
+						# bad indexing of tuple, list or str
+						pass
+					except KeyError:
+						# shouldn't happen? But seen it...
+						pass
 
-					# format our description value
-					if vals[1] is type(str):
-						vals[1].replace('*', '').lower().capitalize()
-					
 					# add the data to the new column
 					dataframe.iloc[i, idx + 1] = vals[1]
 					# then replace the merged values with the single column value
 					dataframe.iloc[i, idx] = vals[0]
+
+			# TODO : rectify duplicates forming originally??
 			if dataframe.columns.duplicated().any()	:
 				dataframe.columns = ['Description_Hours', 'Rate', 'Hours', 'Value_Hours', 'Description_Other', 'nan', 'Tax_Ind', 'Value_Other']
 				dataframe = dataframe.drop("nan", axis=1)
-
 			return dataframe
 
 		########################################################################
