@@ -17,6 +17,27 @@ import sys
 
 CMAP =  plt.get_cmap('Paired') # Global colour map variable
 
+class tx_data():
+		from pandas import Timestamp
+
+		def __init__(self, description: str, date=Timestamp.today, value=0):
+			"""
+			Parameters
+			----------
+			date : pandas.Timestamp
+				the time of the transaction, default today
+			value : float
+				the transaction value, default 0
+			description : str
+				a description associated with the transaction
+			"""
+			if type(date) is not str:
+				self.date = date.strftime("%d-%m-%Y")
+			else:
+				self.date = date
+			self.val = value
+			self.desc = str(description)
+
 class AccountData():
 	"""Track several user finance details and accounts.
 	
@@ -133,7 +154,7 @@ class AccountData():
 			'enterainment': 		env.list("ENTERTAINMENT"),
 		}
 
-		self.SAVINGS_IDS = [env("ACC_1"), env("ACC_2"), env("ACC_3")]
+		self.SAVINGS_IDS = [env("ACC_1"), env("ACC_2")]
 
 		# retrieve the bank data frame
 		if "account_frame" in kwargs:
@@ -149,28 +170,6 @@ class AccountData():
 		# relevant stats dicts/lists, dynamically configure this based on cat's 
 		# defined for the class above...
 		self.curr_income_stats, self.curr_savings_stats, self.curr_expenditure_stats = ([] for i in range(3))
-
-	############################################################################
-	# Child classes
-	############################################################################
-	class tx_data():
-		from pandas import Timestamp
-
-		def __init__(self, description: str, date=Timestamp.today, value=0):
-			"""
-			Parameters
-			----------
-			date : pandas.Timestamp
-				the time of the transaction, default today
-			value : float
-				the transaction value, default 0
-			description : str
-				a description associated with the transaction
-			"""
-
-			self.date = date.strftime("%d-%m-%Y")
-			self.val = value
-			self.desc = str(description)
 
 	############################################################################
 	# Getters
@@ -249,13 +248,17 @@ class AccountData():
 		"""
 
 		# incomes dict and associated lists to add to
-		incomes = dict(zip(self.INCOME.keys(), ([] for i in range(len(self.INCOME)))))
+		
+		try:
+			incomes = dict(zip(self.INCOME.keys(), ([] for i in range(len(self.INCOME)))))
+		except GeneratorExit:
+			pass
 
 		for cat_key, sub_cat_list in self.INCOME.items():
 			for i in range(0, len(acc_frame)):
 				if str(sub_cat_list).strip() in acc_frame.Description[i]:
 					incomes[cat_key].append(
-						self.tx_data(sub_cat_list, acc_frame.Date[i],  acc_frame.Tx[i])
+						tx_data(sub_cat_list, acc_frame.Date[i],  acc_frame.Tx[i])
 						)
 
 		return incomes
@@ -338,7 +341,7 @@ class AccountData():
 					dataframe = dataframe.drop(np.NaN, axis=1)
 				return dataframe
 
-			except TypeError as Header_Index_Error:
+			except TypeError:
 				print("The header index was not correctly calculated, please check the header for the frame manually.\n")
 				traceback.print_exc()
 				traceback.print_stack()
@@ -352,70 +355,79 @@ class AccountData():
 				return 
 
 		def _split_merged_columns(dataframe) -> pd.DataFrame:
-			# check first row 'splittable'
-			hdr_vals = dataframe.columns.tolist()
+			hdr_vals = dataframe.columns.tolist() # check first row 'splittable'
 			idxs_added = []
 
-			# start by splitting column names and inserting blank columns ready for data
 			i = 0
+			# start by splitting column names and inserting blank columns ready for data
 			for val in hdr_vals:
 				if ' ' in str(val):
 					new_hdrs = val.split()
 					# insert a new column at this position with NaN type values
 					try:
-						dataframe.insert(i + 1, str(new_hdrs[-1]), np.NaN)
-					except ValueError as already_exists:
-						dataframe.insert(i + 1, str(new_hdrs[-1])+str(i), np.NaN)
+						dataframe.insert(i + 1, new_hdrs[1], np.NaN)
+					except ValueError:
+						# Duplicate case, we had a duplicate to insert!
+						# add _Other to distinguish it
+						dataframe.insert(i + 1, new_hdrs[1] + '_Other', np.NaN)
 
-					# rename the current column
-					dataframe.rename(
-						columns={dataframe.columns[i]: new_hdrs[-2]}, 
-						inplace=True,
-						copy=False)
-					# record the insertion index
+					# rename the current column and record the insertion idx
+					# edge case, possible that column renamed to existing name
+					if new_hdrs[0] in dataframe.columns.values:
+						idx = dataframe.columns.values.tolist().index(new_hdrs[0])
+						dataframe.columns.values[idx] = str(new_hdrs[0] + '_Other')
+						dataframe.columns.values[i] = new_hdrs[0]
+					else:
+						dataframe.columns.values[i] = new_hdrs[0]
+					
 					idxs_added.append(i)
-					# jump past the column we just inserted
-					i -=- 2
+					i -=- 2 # skip the col we just made
 				else:
-					# we couldn't split, jump to next column
-					i -=- 1
+					i -=- 1 # not splitable, skip
 
-			# start from 1, skip the headers
+			# now split the vals in cols tracked by idxs_added
+			# and perform type conversion and string formatting
 			for i in range(len(dataframe)):
-				# row_vals = dataframe.iloc[i].tolist()
-				# we know from our previous insertion which col idx's require splitting,
-				# as they were recording on making blank columns
+				# idxs_added tracked which cols need data_points split to vals
 				for idx in idxs_added:
-					# if left or right half of frame different lengths
-					# data cant be split (nan nan)
 					data_point = dataframe.iloc[i, idx]
 					if type(data_point) == float:
 						continue # skip nan types		
 					vals = data_point.split()
+
 					try:
 						string_val = ''
-						# vals is a split arr, combined string, float vals
-						for i in range(len(vals)):
+						# val is unknown combination of strings, floats (maybe nan) vals
+						length = len(vals)
+						j = 0
+						while j < length:
 							try:
-								vals[i] = float(vals[i])
+								vals[j]= float(vals[j])
+								j -=- 1
 							except ValueError: 
 								# val was string, apply string formating
-								string_val += ' ' + vals.pop(i)
-						# apply string formating
-						string_val = string_val.strip().replace('*', '').lower().capitalize()
+								string_val += ' ' + vals.pop(j).replace('*', '').lower().capitalize()
+								length -= 1
+								
+						if len(string_val) is not 0: 
+							# apply final string formating
+							string_val = string_val.strip()
+
 						if len(vals) > 2:
+							# we dont know what is there then, RuntimeError and hope for the best
 							raise RuntimeError
+						elif len(vals) is 0:
+							vals =tuple([np.nan, string_val])
+						elif len(string_val) is 0:
+							vals = tuple(vals)
 						else:
 							vals = tuple(vals.append(string_val))
-					except RuntimeError:
-						# raised by too many floats occuring
-						# or we missed nan vals somehow
-						pass
-					except ValueError:
-						# bad indexing of tuple, list or str
-						pass
-					except KeyError:
-						# shouldn't happen? But seen it...
+
+					except Exception as e:
+						# TODO: add logging to log file here
+						# we dont know error, pass and hope it's caught else where
+						print(e)
+						# traceback.print_stack()
 						pass
 
 					# add the data to the new column
@@ -423,11 +435,7 @@ class AccountData():
 					# then replace the merged values with the single column value
 					dataframe.iloc[i, idx] = vals[0]
 
-			# TODO : rectify duplicates forming originally??
-			if dataframe.columns.duplicated().any()	:
-				dataframe.columns = ['Description_Hours', 'Rate', 'Hours', 'Value_Hours', 'Description_Other', 'nan', 'Tax_Ind', 'Value_Other']
-				dataframe = dataframe.drop("nan", axis=1)
-			return dataframe
+			return dataframe.drop(['nan'], axis= 1)
 
 		########################################################################
 
@@ -440,9 +448,11 @@ class AccountData():
 		payslip_name = os.path.join(f_dir, fn)
 		data = read_pdf(payslip_name)[0]
 
-		# drop the NaN col generated and get the default column titles
-		data = data.drop(["Unnamed: 0", "Status"], axis=1)
-		cols_default_headers = data.columns.values
+		try:
+			data = data.drop(["Unnamed: 0", "Status"], axis=1)
+			cols_default_headers = data.columns.values
+		except (KeyError, ValueError) as e:
+			raise e
 
 		# split the data into new columns where tabula merged them, this must be
 		# dynamic as user could work further combinations of work rates, etc...
@@ -451,7 +461,6 @@ class AccountData():
 			if row_split_check.values.any():
 				bool_header_NaN_spacing = row_split_check.sum().tolist()
 
-				# Note: 'is' used rather than ==, 1 is interned within Python by default
 				if bool_header_NaN_spacing.count(0) is 1:
 					# this is the index where we split the data frame from aggregate
 					# and stat's income values, break after saving the new df
@@ -460,41 +469,25 @@ class AccountData():
 					aggregate_income_header_idx = i + 1
 					break
 
-		try:
-			# use correct titles in row_id = true_col_header_index for column header values
-			if latest_week_income.empty or aggregate_income.empty:
-				print("A frame was incorrectly initialised.")
-				raise ValueError
-			else:
-				latest_week_income = _rename_headers(
-					latest_week_income, true_col_header_index, cols_default_headers)
-				aggregate_income = _rename_headers(
-					aggregate_income, aggregate_income_header_idx, cols_default_headers)
-		except Exception as e:
-			print(type(e))
-			if aggregate_income_header_idx is None:
-				print("The income and stats frames could not be dynamically calculated. ")
-			else:
-				print("Some error occured")
-				print('Latest Week Income Frame:\n', latest_week_income, '\n')
-				print('Aggregate Income Frame:\n', aggregate_income, '\n')
-				print('Data Frame:\n', data, '\n')
-				traceback.print_stack()
-				return
-
+		# use correct titles in row_id = true_col_header_index for column header values
+		if latest_week_income.empty or aggregate_income.empty:
+			print("A frame was incorrectly initialised.")
+			raise ValueError
+		else:
+			latest_week_income = _rename_headers(
+				latest_week_income, true_col_header_index, cols_default_headers)
+			aggregate_income = _rename_headers(
+				aggregate_income, aggregate_income_header_idx, cols_default_headers)
+			
 		try:
 			# now the frames have been split horizontally, 
 			# split vertically where some columns have been merged
 			latest_week_income = _split_merged_columns(latest_week_income)
-
 		except Exception  as e:
-			print(type(e))
-			print("Could not split merged data values of income stats data.")
-			traceback.print_stack()
+			print(e, "\nCould not split merged data values of income stats data.")
 			pass
 
-		# manually correct the header titles of aggregate_income
-		hdr_vals_income = aggregate_income.columns.values
+		# manually correct the some column titles
 		aggregate_income.rename(
 			columns={
 				aggregate_income.columns[2]: "Pre_Tax_Deds",
@@ -502,16 +495,36 @@ class AccountData():
 			},
 			inplace=True,
 			copy=False)
-		
-		# perform some type clarification
-		cols = ['Rate', 'Hours', 'Value_Hours', 'Value_Other']
-		for col in cols:
-			latest_week_income[col] = latest_week_income[col].apply(float)
-
-		# add summative data from latetst_week_income to aggregate_income
-		aggregate_income["Total_Hours"] = sum(latest_week_income.Hours) 
-
+		# now we try to remove NaNs from the frames
 		# return our corrected frames
+		# first elem of col sets type, assume blanks never form in first row
+		t_vals = [type(e) for e in list(latest_week_income.loc[0,:])]
+		cols = list(latest_week_income.columns.values)
+		# latest_week_income = latest_week_income.astype(dict(zip(cols, t_vals)))
+		for i, col in enumerate(cols):
+			t_type = t_vals[i]
+			# determine k: the first idx with NaN in a col
+			# i.e. the first True index in a isnull() test
+			try:
+				k = list(latest_week_income[col].isnull()).index(True)
+			except ValueError:
+				k = -1
+
+			if k == -1:
+				continue
+			elif t_type == str:
+				latest_week_income.loc[:,col].values[k:] = ''
+			elif t_type == float or t_type == np.float64:
+				latest_week_income.loc[:,col].values[k:] = 0.0
+			else:
+				pass
+
+		try:
+			# add summative data from latetst_week_income to aggregate_income
+			aggregate_income["Total_Hours"] = sum(latest_week_income.Hours) 
+		except (AttributeError, Exception) as e:
+			pass
+		
 		return aggregate_income, latest_week_income
 
 	def get_savings(self, acc_frame) -> dict:
@@ -525,17 +538,14 @@ class AccountData():
 		savings_data = dict(zip(self.SAVINGS_IDS, ([] for i in range(len(self.SAVINGS_IDS)))))
 
 		for i in range(len(acc_frame)):
-			try:
-				# tx for savings should includes the acc_id ref
-				for _id in self.SAVINGS_IDS:
-					desc_val = acc_frame.loc[i, "Description"]
-					tx_val   = acc_frame.loc[i, "Tx"]
-					# test for outgoing as well as unique ref id
-					if _id in desc_val and tx_val > 0:
-						savings_data[_id].append(self.tx_data(desc_val, acc_frame.loc[i, "Date"], tx_val))
-			except Exception:
-				return dict(zip("1", self.tx_data("data_not_found")))
-
+			desc_val = acc_frame.loc[i, "Description"]
+			tx_val   = acc_frame.loc[i, "Tx"]
+			# tx for savings should includes the acc_id ref
+			for _id in self.SAVINGS_IDS:
+				# test for outgoing as well as unique ref id
+				if _id in desc_val:
+					tx = tx_data(desc_val, acc_frame.loc[i, "Date"], tx_val)
+					savings_data[_id].append(tx)
 		return savings_data
 
 	def get_expenditures(self, acc_frame) -> dict:
@@ -563,10 +573,10 @@ class AccountData():
 						
 						if idx is not -1:
 							expenditures[cat_key].append(
-								self.tx_data(search_term, acc_frame.Date[i], acc_frame.Tx[i])
+								tx_data(search_term, acc_frame.Date[i], acc_frame.Tx[i])
 								)
 		except Exception:
-			return dict(zip("1", self.tx_data("data_not_found")))
+			return dict(zip("1", tx_data("data_not_found")))
 				
 		return expenditures
 
@@ -687,11 +697,11 @@ class AccountData():
 		income_agg = self.incomes["aggregate_income"]
 
 		# labels
-		hour_dist_labels = income_stats["Description_Hours"].values
+		hour_dist_labels = income_stats["Description"].values
 		hour_plus_comms_labels = income_stats["Description_Other"].values
 		income_tax_dist_labels = ["Tax","NET income"] 
 		# data
-		hour_dist_data = np.array(income_stats["Value_Hours"].values, dtype=np.float32)
+		hour_dist_data = np.array(income_stats["Value"].values, dtype=np.float32)
 		hour_plus_comms_data = np.array(income_stats["Value_Other"].values, dtype=np.float32)
 		income_tax_dist_data = [
 			# access the first element, janky I know..
@@ -733,8 +743,9 @@ class AccountData():
 
 	def display_savings_stats(self, figsize=(10,10)):
 		"""Generate the display for savings data, based on bank account drawn data. 
-		TODO: Integrate options for REST Super"""
 		
+		TODO: Integrate options for REST Super"""
+
 		fig = plt.figure(figsize=figsize)
 		# Display savings across accounts, bar per acc., i.e. bar figure
 		# Trendline of account, with short range projection (1 month)
@@ -749,19 +760,20 @@ class AccountData():
 					wspace=0.1, hspace=0.1)
 
 		# multiple savings sources, grab the raw data
-		savings_lbls = [[key] for key in self.savings.keys()]
 		savings_data = [[] for i in range(len(self.savings))]
 		savings_dates = [[] for i in range(len(self.savings))]
+		lbls = tuple(key for key in self.savings.keys())
 		
 		for i, key in enumerate(self.savings):
-			savings_data[i] = [tx.val for tx in self.savings[key]]
+			savings_data[i] = [abs(tx.val) for tx in self.savings[key]]
 			savings_dates[i] = [tx.date for tx in self.savings[key]]
 
 		# Add dates to savings labels
-		for i in range(len(savings_data)):
-			for j in range(len(savings_data[i])):
-				savings_lbls[i].append(savings_dates[i][j] + ' ' + savings_lbls[i][j])
-			del(savings_lbls[i][0])
+		for i in range(len(lbls)):
+			# grab the label prefix and reset with correct list numbers
+			savings_lbls = [[] for i in range(len(self.savings))]
+			for j in range(len(savings_dates[i])):
+				savings_lbls[i].append(lbls[i] + ' ' + savings_dates[i][j])
 
 		# TODO, not neccessairly the same week, this is intended to be used in the scatter vs. savings in same week
 		# to make it simpler, draw income net from the bank acc. data not the payslip, make the file's time-stamps work for us
@@ -775,14 +787,14 @@ class AccountData():
 		# TODO : Add support for graphing all 3 sub cats for accounts (combined or seperate whatever...)
 		# bar chart subplot on disp_bottom
 		ax_savings_bar	= plt.Subplot(fig, disp_bottom[0])
-		bar_chart(savings_lbls[0], savings_data[0], ax_savings_bar)
+		bar_chart(savings_lbls[1], savings_data[1], ax_savings_bar)
 		ax_savings_bar.set_ylabel('Savings')
 		ax_savings_bar.set_xlabel('Date and Description')
 		fig.add_subplot(ax_savings_bar)
 
 		# now create the trendline and place it in disp_top
 		ax_savings_trend = plt.Subplot(fig, disp_top[0])
-		scatter_plotter(savings_dates[0], savings_data[0], ax_savings_trend, area=savings_perc)
+		scatter_plotter(savings_dates[1], savings_data[1], ax_savings_trend, area=savings_perc)
 		ax_savings_trend.set_ylabel("Savings Data")
 		ax_savings_trend.set_xlabel("Savings Date")
 		fig.add_subplot(ax_savings_trend)
@@ -1096,17 +1108,18 @@ def scatter_plotter(X, Y, ax, area=10, ALPHA=0.9, _cmap=CMAP):
 	_cmap: colour map object
 		optional, override the global colour map and apply a custom option
 	"""
-
-	ax.scatter(X, Y, c='black', cmap=_cmap, alpha=ALPHA)
-	if len(Y) is 1:
-		ax.set_ylim([Y[0]*0.9, Y[0]*1.1])
-	else:
-		ax.set_ylim([np.asarray(Y).min(), np.asarray(Y).max()])
-	if len(X) is 1:
-		pass
-	else:
-		ax.set_xlim([np.asarray(X).min(), np.asarray(X).max()])
-
+	try:
+		ax.scatter(X, Y, c='black', cmap=_cmap, alpha=ALPHA)
+		if len(Y) is 1:
+			ax.set_ylim([Y[0]*0.9, Y[0]*1.1])
+		else:
+			ax.set_ylim([np.asarray(Y).min(), np.asarray(Y).max()])
+		if len(X) is 1:
+			pass
+		else:
+			ax.set_xlim([np.asarray(X).min(), np.asarray(X).max()])
+	except (TypeError, Exception):
+		ax.scatter(X, Y, c='black', cmap=_cmap, alpha=ALPHA)
 def normaliser(x):
 	"""Apply a simple min-max normalisation to the 1D data X."""
 

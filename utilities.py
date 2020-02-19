@@ -39,11 +39,16 @@ def pdf_maker(account):
 	"""
 
 	# Get the figures to save
-	if len(account.savings) == 0:
+	s = 0
+	for lst in account.savings.values():
+		s += len(lst)
+	
+	if s is 0:
 		figs = [
 		account.display_income_stats(),
 		account.display_expenditure_stats(),
 		]
+		
 	else:
 		figs = [
 		account.display_income_stats(),
