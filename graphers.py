@@ -1,3 +1,6 @@
+import matplotlib.pyplot as plt
+
+CMAP =  plt.get_cmap('Paired') # Global colour map variable
 
 def scatter_plotter(X, Y, ax, area=10, ALPHA=0.9, _cmap=CMAP):
 	"""Scatter plot constructor for given data and custom design.
