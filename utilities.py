@@ -55,8 +55,9 @@ def pdf_maker(account):
 		account.display_expenditure_stats(),
 		account.display_savings_stats(),
 		]
-
-	with PdfPages("output.pdf") as pdf:
+	env = safe_environ()
+	fn = env('PARENT_DOWNLOAD_DIR')
+	with PdfPages(os.path.join(fn,"output.pdf")) as pdf:
 		for fig in figs:
 			pdf.savefig(fig, bbox_inches='tight', papertype='a4')
 		

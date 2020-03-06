@@ -15,7 +15,7 @@ import time
 
 DAY = 86400
 SLEEP_CTR = DAY
-DEBUG = True
+DEBUG = False
 
 if DEBUG == True:
 	SLEEP_CTR = 10
