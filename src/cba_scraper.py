@@ -1,4 +1,4 @@
-import core.environConfig
+from core import environConfig
 
 from selenium.webdriver import Chrome
 from selenium.webdriver.common.keys import Keys
@@ -8,7 +8,6 @@ from selenium.common import exceptions
 
 import pandas as pd
 import os
-import environ
 
 def get_acc_export(driver):
 	try:
@@ -64,7 +63,7 @@ def get_account_data():
 	download the latest CSV data of their transactions.
 	"""
 
-	env = core.environConfig.safe_environ()
+	env = environConfig.safe_environ()
 
 	webdriver = os.path.abspath(env("WEB_DRIVER"))
 	URL_NETBANK_LOGIN = env("URL_NETBANK_LOGIN")

@@ -1,8 +1,9 @@
 import os
 import sys
-import environ
 from matplotlib.backends.backend_pdf import PdfPages
 from datetime import datetime
+
+from core import environConfig
 
 def pdf_maker(account):
 	"""Generate the output pdf for review.
@@ -13,25 +14,27 @@ def pdf_maker(account):
 		AccountData object
 	"""
 
+	env = environConfig.safe_environ()
+
 	# Get the figures to save
-	s = 0
-	for lst in account.savings.values():
-		s += len(lst)
+	savings_lists = [len(lst) for lst in account.savings.values()]
+	savings_sum = sum(savings_lists)
 	
-	if s is 0:
-		figs = [
-		account.display_income_stats(),
-		account.display_expenditure_stats(),
-		]
-		
+	if savings_sum is 0:
+		figs = [ 
+			account.display_income_stats(), account.display_expenditure_stats()]
 	else:
 		figs = [
 		account.display_income_stats(),
 		account.display_expenditure_stats(),
 		account.display_savings_stats(),
 		]
+ 
+	par_dir = os.path.abspath(env("PARENT_DIR"))
+	out_fn = os.path.normpath("data/output.pdf")
+	save_dir = os.path.join(par_dir, out_fn)
 
-	with PdfPages("output.pdf") as pdf:
+	with PdfPages(save_dir) as pdf:
 		for fig in figs:
 			pdf.savefig(fig, bbox_inches='tight', papertype='a4')
 		
@@ -43,4 +46,4 @@ def pdf_maker(account):
 		d['CreationDate'] = datetime.today()
 		d['ModDate'] = datetime.today()
 
-	os.system("output.pdf")
+	os.system(save_dir)

@@ -9,6 +9,7 @@ from datetime import datetime
 CRITS = []
 MIMES = []
 PARENT_DOWNLOAD_DIR = ''
+SAVE_DIR = ''
 DOWN_SUB_FOLDERS = []
 
 ###############################################################
@@ -21,13 +22,15 @@ def update_file_mover_globals():
 	global CRITS 
 	global MIMES
 	global PARENT_DOWNLOAD_DIR
+	global SAVE_DIR
 	global DOWN_SUB_FOLDERS
 
 	try:
 		CRITS = env.list("CRITS")
 		MIMES = env.list("MIMES")
 		PARENT_DOWNLOAD_DIR = str(env("PARENT_DOWNLOAD_DIR"))
-		DOWN_SUB_FOLDERS = env.list("DOWN_SUB_FOLDERS")
+		DOWN_SUB_FOLDERS = env.list("DATA_SRCS")
+		SAVE_DIR = str(env("PARENT_DIR"))
 	except KeyError:
 		return False
 	
@@ -83,13 +86,13 @@ def file_exists(file_dest, filename, duplicate_file_ctr):
 		date = datetime.now().strftime("%d-%m-%Y")
 		curr_type = filename[filename.find('.'):]
 		new_name = date + curr_type
-		file_exists = os.path.isfile(os.path.join(file_dest, new_name))
+		existsFile = os.path.isfile(os.path.join(file_dest, new_name))
 
-		while file_exists:
+		while existsFile:
 			# handle duplicate named files by incrementing a counter
 			duplicate_file_ctr -=- 1	
 			new_name = date + "_" + str(duplicate_file_ctr) + curr_type
-			file_exists = os.path.isfile(os.path.join(file_dest, new_name))
+			existsFile = os.path.isfile(os.path.join(file_dest, new_name))
 		return os.path.join(file_dest, new_name)
 	except OverflowError:
 		if duplicate_file_ctr > (10**5):
@@ -133,13 +136,12 @@ class DownloadEventHandler(FileSystemEventHandler):
 		update_file_mover_globals()
 		folder_to_track = PARENT_DOWNLOAD_DIR
 		down_subfolders = DOWN_SUB_FOLDERS
+		save_dir = SAVE_DIR
 		target_folders = []
 
 		# collect the target folders
 		for folder in down_subfolders:
-			target_folders.append(os.path.join(folder_to_track, folder))
-		
-		# default_fn = "__unknown__.uknw"
+			target_folders.append(os.path.join(save_dir, folder))
 
 		for filename in os.listdir(folder_to_track):
 			# first check the filetypes for mimetypes
@@ -159,7 +161,7 @@ class DownloadEventHandler(FileSystemEventHandler):
 			elif f_type == MIMES[1]:
 				target_save_dir = target_folders[1]
 			else: 
-				target_save_dir = os.path.join(folder_to_track, "Finance")
+				target_save_dir = folder_to_track
 
 			duplicate_file_ctr = 1
 			# create the new file destination, checking for duplicates and including a datetime value

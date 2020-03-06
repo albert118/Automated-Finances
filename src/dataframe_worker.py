@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.patches as mpatches
 
-import environ
 from datetime import datetime
 import math
 import os
@@ -127,8 +126,8 @@ class AccountData():
 		"""
 		# ensure safe env on account object instantiation
 		env = environConfig.safe_environ()
-		self.BASE_DIR = env("PARENT_DOWNLOAD_DIR")
-		self.SUB_FOLDERS = env.list("DOWN_SUB_FOLDERS")
+		self.BASE_DIR = env("PARENT_DIR")
+		self.SUB_FOLDERS = env.list("DATA_SRCS")
 
 		########################################################################
 		# Categories and Search terms
@@ -442,6 +441,7 @@ class AccountData():
 		aggregate_income = pd.DataFrame()
 		latest_week_income = pd.DataFrame()
 		aggregate_income_header_idx = None
+
 		# retrieve the payslip, uses the tabula pdf_reader
 		f_dir = os.path.join(self.BASE_DIR, self.SUB_FOLDERS[1])
 		fn = datetime.now().strftime("%d-%m-%Y")+".pdf"
@@ -1120,6 +1120,7 @@ def scatter_plotter(X, Y, ax, area=10, ALPHA=0.9, _cmap=CMAP):
 			ax.set_xlim([np.asarray(X).min(), np.asarray(X).max()])
 	except (TypeError, Exception):
 		ax.scatter(X, Y, c='black', cmap=_cmap, alpha=ALPHA)
+
 def normaliser(x):
 	"""Apply a simple min-max normalisation to the 1D data X."""
 

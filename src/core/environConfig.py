@@ -1,6 +1,6 @@
 import os
 import sys
-import environ
+from environs import Env
 from matplotlib.backends.backend_pdf import PdfPages
 from datetime import datetime
 
@@ -21,7 +21,7 @@ def safe_environ():
 	default_warn = "[ENVIRON SETTINGS] Environment settings not found"
 	try:
 		# grab local environ settings and attempt to read settings file
-		env = environ.Env()
+		env = Env()
 		env_file = os.path.join(os.getcwd(), "local.env")
 		env.read_env(env_file)
 		return env

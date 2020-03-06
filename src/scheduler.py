@@ -1,5 +1,3 @@
-
-
 import dataframe_worker
 import file_handler as mover
 import cba_scraper
@@ -35,10 +33,11 @@ observer.schedule(downloads_handler, env("PARENT_DOWNLOAD_DIR"))
 
 # now the observer watches for updates to the .env file and Downloads folder
 observer.start()
+
 try:
 	while True:
 		if DEBUG == True:	
-			data = os.path.join("D:\Downloads\Finance\Banking", "18-02-2020.csv")
+			data = os.path.join("D:\Documents\GitHub\Automated-Finances\Data\Banking", "06-03-2020.csv")
 			df = pd.read_csv(data, names=["Date","Tx", "Description", "Curr_Balance"])
 			account = dataframe_worker.AccountData(**{"account_frame": df})
 		else:
