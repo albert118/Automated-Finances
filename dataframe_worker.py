@@ -1,4 +1,5 @@
 import utilities
+import graphers
 
 import pandas as pd
 import numpy as np
@@ -723,7 +724,7 @@ class AccountData():
 		# compelete by generating charts and setting CMAP
 		for i, ax in enumerate(list_ax):
 			ax.set_prop_cycle(color=[CMAP(j) for j in range(1,10)])
-			pie_chart(label_val_dicts[i].keys(), label_val_dicts[i].values(),
+			graphers.pie_chart(label_val_dicts[i].keys(), label_val_dicts[i].values(),
 			ax, category=list_titles[i], LABELS=False
 			)
 			fig.add_subplot(ax)
@@ -734,7 +735,7 @@ class AccountData():
 		ax_bar_income_raw = plt.Subplot(fig, inner_bottom[0])
 		bar_labels = ["Week {}".format(i) for i in range(len(income_raw))]
 		# reverse to give time proceeding to the right, more intuitive to user
-		bar_chart(bar_labels, income_raw, ax_bar_income_raw)
+		graphers.bar_chart(bar_labels, income_raw, ax_bar_income_raw)
 		ax_bar_income_raw.set_ylabel('Income')
 		ax_bar_income_raw.set_xlabel('Week of Income')
 		plt.suptitle("Income Statistics")
@@ -787,14 +788,14 @@ class AccountData():
 		# TODO : Add support for graphing all 3 sub cats for accounts (combined or seperate whatever...)
 		# bar chart subplot on disp_bottom
 		ax_savings_bar	= plt.Subplot(fig, disp_bottom[0])
-		bar_chart(savings_lbls[1], savings_data[1], ax_savings_bar)
+		graphers.bar_chart(savings_lbls[1], savings_data[1], ax_savings_bar)
 		ax_savings_bar.set_ylabel('Savings')
 		ax_savings_bar.set_xlabel('Date and Description')
 		fig.add_subplot(ax_savings_bar)
 
 		# now create the trendline and place it in disp_top
 		ax_savings_trend = plt.Subplot(fig, disp_top[0])
-		scatter_plotter(savings_dates[1], savings_data[1], ax_savings_trend, area=savings_perc)
+		graphers.scatter_plotter(savings_dates[1], savings_data[1], ax_savings_trend, area=savings_perc)
 		ax_savings_trend.set_ylabel("Savings Data")
 		ax_savings_trend.set_xlabel("Savings Date")
 		fig.add_subplot(ax_savings_trend)
@@ -835,13 +836,13 @@ class AccountData():
 				axN = fig.add_subplot(inner_top[1, key_counter - col_count]) # this is also one of the cleaner ways to create the axis
 
 			axN.set_prop_cycle(color=[CMAP(i) for i in range(1,10)])
-			pie_chart(label_vals.keys(), label_vals.values(), axN, category=key)
+			graphers.pie_chart(label_vals.keys(), label_vals.values(), axN, category=key)
 			totals.append(sum(label_vals.values()))
 			key_counter -=- 1
 
 		plt.suptitle("Expenditure Statistics")
 		ax_rect = fig.add_subplot(inner_bottom[0])
-		bar_chart(list(self.expenditures.keys()), totals, ax_rect)
+		graphers. bar_chart(list(self.expenditures.keys()), totals, ax_rect)
 		
 		ax_rect.set_ylabel('Expenditure')
 		ax_rect.set_xlabel('Category of Expenditure')
@@ -1002,124 +1003,6 @@ def incremental_mean(prev_mean, new_vals):
 
 	return mean
 
-def pie_chart(labels, values, ax, category=None, LABELS=None, size=0.5, font_size=9, rad=1):
-	"""Pie chart constructor with custom design.
-	
-	Pie chart constructor for given labels and sizes. This generates 'donut' pie charts with
-	percentage value labelling and styling features.
-
-	Parameters
-	----------
-	labels : list : str
-		list of string labels for the wedges
-	
-	values : list : float
-		list of float values to create chart with
-
-	ax : matplotlib.axes
-		the axis object to bind to
-
-	category : str
-		the category being plotted, if None, no title is set
-
-	LABELS : Boolean
-		LABELS True sets default labels (top right), False or None sets lower center
-
-	size : float
-		controls the size of the wedges generated for the 'donut' pies
-
-	font_size : int
-		font size of labelling
-
-	rad : float
-		the radius of the pie chart. The inner radius (wedge rad) is scaled from this
-	"""
-
-	# initially set labels as none, update with custom legend after
-	wedges, texts, autotexts = ax.pie(
-		[math.fabs(x) for x in values], 
-		labels=None, autopct="%1.1lf%%", 
-		shadow=False, radius=rad, pctdistance=(rad+rad*0.1),
-		wedgeprops=dict(width=size, edgecolor='w'))
-	
-	# creating the legend labels, use the label keys initially passed to us
-	if LABELS is True:
-		# use a bbox to set legend below pie chart for improved visibility if legend enabled
-		ax.legend(wedges, loc="lower center", labels=labels, bbox_to_anchor=(1,1))
-	else:
-		ax.legend(wedges, loc="lower center", labels=labels, bbox_to_anchor=(rad*0.2, -0.4))
-
-	plt.setp(autotexts, size=font_size, weight="bold")
-	
-	if category is not None:
-		# default title
-		ax.set_title(category.capitalize().replace('_', ' '), weight="bold")
-	return
-
-def bar_chart(labels, values, ax, label=None):
-	"""Bar chart constructor for given labels and sizes.
-
-	Parameters
-	----------
-	labels: list
-		the labels to be applied to the chart
-
-	values: list
-		the values to be charted
-
-	ax: matplotlib.axes
-		the axis object to bind to
-
-	label: str
-		optional header title for the bar chart
-	"""
-
-	width = 1
-	font_size = 12
-	n_labels = len(labels)
-	labels.reverse()
-	values.reverse()
-
-	# calculate length of x-axis then scale to match pie charts above
-	x = np.arange(len(labels))
-	scaled_x = [1.6*i for i in x]
-	rects = ax.bar(scaled_x, values, width, color=[CMAP(i) for i in range(0,n_labels)], label=label)
-	ax.set_xticks(scaled_x)
-	ax.set_xticklabels([label.capitalize().replace('_', ' ') for label in labels])
-	auto_label(rects, ax,font_size)
-
-def scatter_plotter(X, Y, ax, area=10, ALPHA=0.9, _cmap=CMAP):
-	"""Scatter plot constructor for given data and custom design.
-	
-	Generates a scatter plot with auto-scaling values, based on area. 
-	Also applies styling and axis limiting.
-
-	Parameters
-	----------
-	X: list
-	Y: list
-		values to be plotted to appropriate axes
-
-	area: int
-		optional, scaling value to plot a third dimension onto the graph
-	ALPHA: float
-		optional, sets scatter points alpha setting
-
-	_cmap: colour map object
-		optional, override the global colour map and apply a custom option
-	"""
-	try:
-		ax.scatter(X, Y, c='black', cmap=_cmap, alpha=ALPHA)
-		if len(Y) is 1:
-			ax.set_ylim([Y[0]*0.9, Y[0]*1.1])
-		else:
-			ax.set_ylim([np.asarray(Y).min(), np.asarray(Y).max()])
-		if len(X) is 1:
-			pass
-		else:
-			ax.set_xlim([np.asarray(X).min(), np.asarray(X).max()])
-	except (TypeError, Exception):
-		ax.scatter(X, Y, c='black', cmap=_cmap, alpha=ALPHA)
 def normaliser(x):
 	"""Apply a simple min-max normalisation to the 1D data X."""
 
