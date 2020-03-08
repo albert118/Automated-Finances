@@ -1,9 +1,13 @@
+# core
+from core import environConfig
+
+# third party libs
+from matplotlib.backends.backend_pdf import PdfPages
+
+# python core
 import os
 import sys
-from matplotlib.backends.backend_pdf import PdfPages
 from datetime import datetime
-
-from core import environConfig
 
 def pdf_maker(account):
 	"""Generate the output pdf for review.
@@ -47,3 +51,9 @@ def pdf_maker(account):
 		d['ModDate'] = datetime.today()
 
 	os.system(save_dir)
+
+def img_buffer(figure):
+	with BytesIO as figure_buffer:
+		figure.save(figure_buffer, format='svg')
+		figure_buffer.seek(0)
+	return figure_buffer
