@@ -5,6 +5,7 @@ text boxes, overlays and 'canvasing' tools for generating reports."""
 
 # core
 from core import environConfig, stats
+from accountdata import AccountData
 
 # third party libs
 import pandas as pd
@@ -34,12 +35,15 @@ class Report():
     ENCRYPT = None
     TITLE = "Personal Finance Report"
  
-    def __init__(self):
+    def __init__(self, Account: AccountData):
         ######
-        # PLATYPUS reportlab stuff
+        # Account data application control
         ######
-        self.flowables = []
-        # self.flowables.append(flowables)
+        self.account = Account
+
+        ######
+        # PLATYPUS reportlab content control
+        ######
 
         self.sample_style_sheet = getSampleStyleSheet()
         self.author = self.AUTHOR
@@ -50,46 +54,33 @@ class Report():
             expenditures and incomes.\n\tCompletely modular and upgradeable.\n\t
             See the GitHub https://github.com/albert118/Automated-Finances\n"""
 
+        title_style = self.get_title_style()
+        body_style = self.get_body_style()
+        
+        self.flowables = [
+            Paragraph(self.title, title_style),
+            Paragraph(self.blurb, body_style),
+        ]
+
         self.report_val = self.build_report()
         self.write_pdf()
 
-        #######
-        # plt figure stuff, TODO: move to helper foo()
-        #######
-		# create a GridSpec to hold our page data
-		# fig = plt.figure(figsize=(10,10))
-		# outer = gridspec.GridSpec(2, 1, figure=fig, height_ratios=[3,1])
-		# col_count = math.ceil(len(self.expenditures.keys())/2)
-		# inner_top = gridspec.GridSpecFromSubplotSpec(2, col_count, subplot_spec=outer[0],
-		# 			wspace=0.2, hspace=0.2)
-		# inner_bottom = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[1],
-		# 			wspace=0.05, hspace=0.1)
-
-        # axN = fig.add_subplot(inner_top[0, key_counter]) # this is also one of the cleaner ways to create the axis
-        # axN.set_prop_cycle(color=[CMAP(i) for i in range(1,10)])
-        # pie_chart(label_vals.keys(), label_vals.values(), axN, category=key)
-		# plt.suptitle("Expenditure Statistics")
-		# ax_rect = fig.add_subplot(inner_bottom[0])
-		# bar_chart(list(self.expenditures.keys()), totals, ax_rect)
-		# ax_rect.set_ylabel('Expenditure')
-		# ax_rect.set_xlabel('Category of Expenditure')
-		# fig.add_subplot(ax_rect)
 
     def __repr__(self):
         return("pdf report: {title} by {author}".format(title=self.title, author=self.author))
-    
-    def __del__(self):
-        del self.report_val
-        del self.author
-        del self.encrypt
-        del self.title
-        del self.blurb
 
     # getters/setters/updaters
 
     # class methods
     def add_graph(self):
-        pass
+        income_graphs = svg2rlg(self.account.display_income_stats())
+        savings_graphs = svg2rlg(self.account.display_savings_stats())
+        expenditure_graphs = svg2rlg(self.account.display_expenditure_stats())
+
+        self.flowables.append(income_graphs)
+        self.flowables.append(savings_graphs)
+        self.flowables.append(expenditure_graphs)
+        
     def add_text(self):
         pass
     def add_overlay(self):
@@ -146,17 +137,8 @@ class Report():
                 encrypt=self.encrypt,
                 )
 
-            title_style = self.get_title_style()
-            body_style = self.get_body_style()
-            flowables = [
-                Paragraph(self.title, title_style),
-                Paragraph(self.blurb, body_style),
-            ]
-            # append and update with any other flowable data from __init__
-            # flowables.append(self.flowables)
-
             report_pdf.build(
-                flowables,
+                self.flowables,
                 onFirstPage=self.add_page_num,
                 onLaterPages=self.add_page_num,
             )
