@@ -3,8 +3,10 @@ Data layer management of the automated finance project. Returns of most
 functions are ByteIO streams. TODO: convert all to this where appropriate.
 """
 
+__all__ = ("AccountData")
+
 # core
-from core import environConfig, graphing
+from core import environConfig, graphing, images
 
 # third party libs
 import pandas as pd
@@ -13,7 +15,6 @@ from tabula import read_pdf
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.patches as mpatches
-
 
 # python core
 from datetime import datetime
@@ -639,7 +640,8 @@ class AccountData():
 		ax_bar_income_raw.set_xlabel('Week of Income')
 		plt.suptitle("Income Statistics")
 		fig.add_subplot(ax_bar_income_raw)
-		return 
+
+		return images.img_buffer(fig)
 
 	def display_savings_stats(self, figsize=(10,10)):
 		"""Generate the display for savings data, based on bank account drawn data. 
@@ -700,7 +702,7 @@ class AccountData():
 		fig.add_subplot(ax_savings_trend)
 		plt.suptitle("Savings Statistics")
 		
-		return fig
+		return images.img_buffer(fig)
 
 	def display_expenditure_stats(self, figsize=(10,10)):
 		""" Display some visualisations and print outs of the income data. """
@@ -747,4 +749,4 @@ class AccountData():
 		ax_rect.set_xlabel('Category of Expenditure')
 		fig.add_subplot(ax_rect)
 
-		return fig
+		return images.img_buffer(fig)

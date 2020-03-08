@@ -15,3 +15,5 @@ def img_buffer(figure):
 		figure.savefig(figure_buffer, format='svg')
 		figure_buffer.seek(0)
 	return figure_buffer
+
+	
