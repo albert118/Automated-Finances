@@ -584,7 +584,7 @@ class AccountData():
 		""" Display some visualisations and print outs of the income data. """
 
 		# setup the grids for holding our plots, attach them to the same figure
-		fig = plt.figure(figsize=(10,10))
+		fig = plt.figure(figsize=figsize)
 		outer = gridspec.GridSpec(2, 1, wspace=0.2, hspace=0.2)
 		# inner_**** are for use with plotting, outer is purely spacing
 		inner_top = gridspec.GridSpecFromSubplotSpec(1, n_charts_top, subplot_spec=outer[0],
@@ -641,7 +641,7 @@ class AccountData():
 		plt.suptitle("Income Statistics")
 		fig.add_subplot(ax_bar_income_raw)
 
-		return images.img_buffer(fig)
+		return images.img_buffer_to_svg(fig)
 
 	def display_savings_stats(self, figsize=(10,10)):
 		"""Generate the display for savings data, based on bank account drawn data. 
@@ -702,7 +702,7 @@ class AccountData():
 		fig.add_subplot(ax_savings_trend)
 		plt.suptitle("Savings Statistics")
 		
-		return images.img_buffer(fig)
+		return images.img_buffer_to_svg(fig)
 
 	def display_expenditure_stats(self, figsize=(10,10)):
 		""" Display some visualisations and print outs of the income data. """
@@ -711,7 +711,7 @@ class AccountData():
 
 		totals = []		
 		# create the outer subplot that will hold the boxplot and subplots
-		fig = plt.figure(figsize=(10,10))
+		fig = plt.figure(figsize=figsize)
 		outer = gridspec.GridSpec(2, 1, figure=fig, height_ratios=[3,1])
 		col_count = math.ceil(len(self.expenditures.keys())/2)
 		inner_top = gridspec.GridSpecFromSubplotSpec(2, col_count, subplot_spec=outer[0],
@@ -749,4 +749,4 @@ class AccountData():
 		ax_rect.set_xlabel('Category of Expenditure')
 		fig.add_subplot(ax_rect)
 
-		return images.img_buffer(fig)
+		return images.img_buffer_to_svg(fig)

@@ -4,7 +4,7 @@ class in page generation features. Provides access to all the plot management,
 text boxes, overlays and 'canvasing' tools for generating reports."""
 
 # core
-from core import environConfig, stats
+from core import environConfig, stats, images
 from accountdata import AccountData
 
 # third party libs
@@ -15,7 +15,8 @@ import matplotlib.gridspec as gridspec
 import matplotlib.patches as mpatches
 from reportlab.pdfgen import canvas
 from reportlab.graphics import renderPDF
-from reportlab.platypus import SimpleDocTemplate, Paragraph, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Paragraph, PageBreak, KeepTogether
+from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm, cm, inch
 from svglib.svglib import svg2rlg
@@ -29,7 +30,8 @@ from io import BytesIO
 
 class Report():
 
-    PAGESIZE = (140 * mm, 216 * mm) # width, height
+    # PAGESIZE = (140 * mm, 216 * mm) # width, height
+    PAGESIZE = A4
     BASEMARGIN = 0.5 * mm
     AUTHOR = "Albert Ferguson"
     ENCRYPT = None
@@ -50,9 +52,10 @@ class Report():
         self.encrypt = self.ENCRYPT
         self.title = self.TITLE
 
-        self.blurb = """\tA detailed personal finance report on investments, incomes,\n\t
-            expenditures and incomes.\n\tCompletely modular and upgradeable.\n\t
-            See the GitHub https://github.com/albert118/Automated-Finances\n"""
+        # note: string lit's are not rendered into the final pdf
+        self.blurb = """A detailed personal finance report on investments, incomes,
+            expenditures and incomes. Completely modular and upgradeable.
+            See the GitHub https://github.com/albert118/Automated-Finances"""
 
         title_style = self.get_title_style()
         body_style = self.get_body_style()
@@ -61,6 +64,7 @@ class Report():
             Paragraph(self.title, title_style),
             Paragraph(self.blurb, body_style),
         ]
+        self.add_graph()
 
         self.report_val = self.build_report()
         self.write_pdf()
@@ -73,9 +77,11 @@ class Report():
 
     # class methods
     def add_graph(self):
-        income_graphs = svg2rlg(self.account.display_income_stats())
-        savings_graphs = svg2rlg(self.account.display_savings_stats())
-        expenditure_graphs = svg2rlg(self.account.display_expenditure_stats())
+        figsize = (A4[0]/92,A4[1]/92) # janky magic number scaling.
+        # TODO: figure out what conversion plt -> svg -> drawing -> canvas even does????
+        income_graphs = self.account.display_income_stats(figsize=figsize)
+        savings_graphs = self.account.display_savings_stats(figsize=figsize)
+        expenditure_graphs = self.account.display_expenditure_stats(figsize=figsize)
 
         self.flowables.append(income_graphs)
         self.flowables.append(savings_graphs)
