@@ -109,6 +109,11 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+Lib/
+Include/
+Scripts/
+tcl/
+pip*
 
 # Spyder project settings
 .spyderproject
@@ -131,4 +136,5 @@ dmypy.json
 # raw data and todos
 *.csv
 *.pdf
-todo.md
+# todo files
+todo.*
