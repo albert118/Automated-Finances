@@ -623,11 +623,7 @@ class AccountData():
 		# compelete by generating charts and setting CMAP
 		for i, ax in enumerate(list_ax):
 			ax.set_prop_cycle(color=[CMAP(j) for j in range(1,10)])
-<<<<<<< HEAD:dataframe_worker.py
-			graphers.pie_chart(label_val_dicts[i].keys(), label_val_dicts[i].values(),
-=======
 			graphing.pie_chart(label_val_dicts[i].keys(), label_val_dicts[i].values(),
->>>>>>> App-File-Structuring-Tests-and-OOP-(1.3):src/accountdata.py
 			ax, category=list_titles[i], LABELS=False
 			)
 			fig.add_subplot(ax)
@@ -638,11 +634,7 @@ class AccountData():
 		ax_bar_income_raw = plt.Subplot(fig, inner_bottom[0])
 		bar_labels = ["Week {}".format(i) for i in range(len(income_raw))]
 		# reverse to give time proceeding to the right, more intuitive to user
-<<<<<<< HEAD:dataframe_worker.py
-		graphers.bar_chart(bar_labels, income_raw, ax_bar_income_raw)
-=======
 		graphing.bar_chart(bar_labels, income_raw, ax_bar_income_raw)
->>>>>>> App-File-Structuring-Tests-and-OOP-(1.3):src/accountdata.py
 		ax_bar_income_raw.set_ylabel('Income')
 		ax_bar_income_raw.set_xlabel('Week of Income')
 		plt.suptitle("Income Statistics")
@@ -696,22 +688,14 @@ class AccountData():
 		# TODO : Add support for graphing all 3 sub cats for accounts (combined or seperate whatever...)
 		# bar chart subplot on disp_bottom
 		ax_savings_bar	= plt.Subplot(fig, disp_bottom[0])
-<<<<<<< HEAD:dataframe_worker.py
-		graphers.bar_chart(savings_lbls[1], savings_data[1], ax_savings_bar)
-=======
 		graphing.bar_chart(savings_lbls[1], savings_data[1], ax_savings_bar)
->>>>>>> App-File-Structuring-Tests-and-OOP-(1.3):src/accountdata.py
 		ax_savings_bar.set_ylabel('Savings')
 		ax_savings_bar.set_xlabel('Date and Description')
 		fig.add_subplot(ax_savings_bar)
 
 		# now create the trendline and place it in disp_top
 		ax_savings_trend = plt.Subplot(fig, disp_top[0])
-<<<<<<< HEAD:dataframe_worker.py
-		graphers.scatter_plotter(savings_dates[1], savings_data[1], ax_savings_trend, area=savings_perc)
-=======
 		graphing.scatter_plotter(savings_dates[1], savings_data[1], ax_savings_trend, area=savings_perc)
->>>>>>> App-File-Structuring-Tests-and-OOP-(1.3):src/accountdata.py
 		ax_savings_trend.set_ylabel("Savings Data")
 		ax_savings_trend.set_xlabel("Savings Date")
 		fig.add_subplot(ax_savings_trend)
@@ -752,193 +736,16 @@ class AccountData():
 				axN = fig.add_subplot(inner_top[1, key_counter - col_count]) # this is also one of the cleaner ways to create the axis
 
 			axN.set_prop_cycle(color=[CMAP(i) for i in range(1,10)])
-<<<<<<< HEAD:dataframe_worker.py
-			graphers.pie_chart(label_vals.keys(), label_vals.values(), axN, category=key)
-=======
 			graphing.pie_chart(label_vals.keys(), label_vals.values(), axN, category=key)
->>>>>>> App-File-Structuring-Tests-and-OOP-(1.3):src/accountdata.py
 			totals.append(sum(label_vals.values()))
 			key_counter -=- 1
 
 		plt.suptitle("Expenditure Statistics")
 		ax_rect = fig.add_subplot(inner_bottom[0])
-<<<<<<< HEAD:dataframe_worker.py
-		graphers. bar_chart(list(self.expenditures.keys()), totals, ax_rect)
-=======
 		graphing.bar_chart(list(self.expenditures.keys()), totals, ax_rect)
->>>>>>> App-File-Structuring-Tests-and-OOP-(1.3):src/accountdata.py
 		
 		ax_rect.set_ylabel('Expenditure')
 		ax_rect.set_xlabel('Category of Expenditure')
 		fig.add_subplot(ax_rect)
 
-<<<<<<< HEAD:dataframe_worker.py
-		return fig
-
-	############################################################################
-	# Stats
-	############################################################################
-
-	def stats(self, date_tx, curr_mean=None, curr_min=None, curr_max=None, curr_std=None, curr_tot=None):
-		""" 
-		IDEA: 
-			Calculate various statistics on the account data passed to the function.
-			* allow for continuous updates and integration of data.
-		Inputs: 
-			date_tx is a 2D array-list like object.
-			the rest are stats as labelled, these are running "total"-eqsue stats
-		Returns:
-			A nested dictionary - two stat dict's and one list of dicts: 
-			running stats dict, list of weekly stats dicts and a 4-weekly stats dict
-
-		------------------------------------------------------------------------
-		key-val args must be set if function is previously called, this
-		is required to update the running statistics on the accounts being 
-		watched as new transactions are added!
-		------------------------------------------------------------------------
-		"""
-
-		# get the numpy arrays for comparison and iteration later
-		array = np.array(date_tx)
-		tx_vals = array[:,1]
-		dates = pd.Series(array[:, 0])
-		weekly_stats = []
-		running_stats = {
-			'_mean': curr_mean, 
-			'_min': curr_min, 
-			'_max': curr_max, 
-			'_std': curr_std, 
-			'_tot': curr_tot,
-		}
-
-		# check key-val args for pre-stats
-		if None in running_stats.values():
-			# then we need to set the stats init vals
-			running_stats['_mean'] = tx_vals.mean()
-			running_stats['_min'] = tx_vals.min()
-			running_stats['_max'] = tx_vals.max()
-			running_stats['_std'] = tx_vals.std()
-			running_stats['_tot'] = tx_vals.sum()
-		# else, incrementally update the values
-		else:
-			# then we need to update the stats
-			running_stats['_std'] = incremental_standard_dev(running_stats['_std'], tx_vals, running_stats['_mean'], tx_vals.mean())
-			running_stats['_mean'] = incremental_mean(running_stats['_mean'], tx_vals)
-			running_stats['_min'] = min(tx_vals.min(), running_stats['_min'])
-			running_stats['_max'] = max(tx_vals.max(), running_stats['_max'])
-			running_stats['_tot'] = running_stats['_tot'] + curr_tot
-
-		curr_date = date.today()
-		curr_week = 1 # we iter from the first week onwards
-		# comp vals for later, use these to keep memory of the single overall min and max vals
-		four_min = 999999
-		four_max = 0
-		# as well as the total...
-		total = 0
-		# and incremental vals for std and mean
-		four_std = 0
-		four_mean = 0
-
-		# weekly and 4-week stats, grab the indexes for each transaction per week and culm sum them for 4-week
-		for i in range(0, 4):
-			# TODO: Edge case of the final days of the month included on last lap for stats, otherwise we ignore 3 days
-			# between for series and index for lists
-			min_date = date(curr_date.year, curr_date.month, curr_week)
-			max_date = date(curr_date.year, curr_date.month, curr_week+7)
-			
-			# this bool indexing can be applied with pandas as a "key" lookup
-			bool_test = dates.between(min_date, max_date)
-			# test in case of zero income in the week, avoids possible div 0 error
-			if not any(bool_test):
-				continue
-
-			vals = tx_vals[bool_test]
-			curr_week += 7
-
-			# calc our stats and stuff them into the dict
-			_stats_week = {
-				'_mean': vals.mean(), 
-				'_min': vals.min(), 
-				'_max': vals.max(), 
-				'_std': vals.std(), 
-				'_tot': vals.sum(),
-			}
-
-			weekly_stats.append(_stats_week)
-			
-			if i == 0:
-				four_std = _stats_week['_std']
-				four_mean = _stats_week['_mean']
-			else:
-				# incremental calc for four_week stats
-				_old_mean = four_mean
-				four_mean = incremental_mean(four_mean, vals)
-				four_std = incremental_standard_dev(four_std, vals, _old_mean, four_mean)
-
-			total += _stats_week['_tot']
-			four_max=max(four_max, _stats_week['_max'])
-			four_min=min(four_min, _stats_week['_min'])
-		
-		four_week_stats = {
-			'_mean': four_mean, 
-			'_min': four_min, 
-			'_max': four_max, 
-			'_std': four_std, 
-			'_tot': total,
-		}
-
-		return {'running_stats': running_stats,'weekly_stats': weekly_stats,'four_week_stats': four_week_stats}
-
-################################################################################
-# Utility
-################################################################################
-
-def auto_label(rects, ax, font_size):
-	""" Attach a text label above each bar in *rects*, displaying its height. """
-	for rect in rects:
-		height = rect.get_height()
-		ax.annotate('{:.2f}'.format(height), 
-			xy=(rect.get_x() + rect.get_width() / 2, height), 
-			xytext=(0, 5*np.sign(height)), # position on "top" of bar (x, y)
-			textcoords="offset points", fontsize=font_size,
-			ha='center', va='center_baseline')
-
-def incremental_standard_dev(prev_std, new_vals, prev_mean, curr_mean):
-	""" Calculate the standard deviation based on the previous values and update the current standard deviation.
-	See here: http://datagenetics.com/blog/november22017/index.html """
-	
-	# use the variance to calculate incrementally, return the rooted value
-	variance = math.sqrt(prev_std)
-	for x in new_vals:
-		variance = variance + (x-prev_mean)*(x-curr_mean)
-
-	# return the std
-	return(math.sqrt(variance/len(new_vals)))
-
-def incremental_mean(prev_mean, new_vals):
-	""" Calculate the mean based upon the previous mean and update incrementally.
-	See here: http://datagenetics.com/blog/november22017/index.html  """
-
-	# use the previous mean to incrementally update the new mean
-	mean = prev_mean
-	n = len(new_vals)
-
-	for x in new_vals:
-		mean = mean + (x - mean)/n
-
-	return mean
-
-def normaliser(x):
-	"""Apply a simple min-max normalisation to the 1D data X."""
-
-	if len(x) < 2:
-		raise ValueError
-	else:
-		pass
-	def f(_x):
-		return (_x-_x.min())/(_x.max()-_x.min())
-	X = np.asarray(x)
-	return list((map(f, X)))
-=======
 		return images.img_buffer_to_svg(fig)
->>>>>>> App-File-Structuring-Tests-and-OOP-(1.3):src/accountdata.py
