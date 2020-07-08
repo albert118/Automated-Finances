@@ -25,5 +25,3 @@ def resize_img_aspect(img_buffer: BytesIO, width=1*cm, img_mode='RGB', size= (90
 	iw, ih = img.size
 	aspect = ih / float(iw)
 	return platImage(img_buffer, width=width, height=(width * aspect))
-
-	

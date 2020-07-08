@@ -1,5 +1,4 @@
-__doc__="""
-Data layer management of the automated finance project. Returns of most 
+__doc__="""Data layer management of the automated finance project. Returns of most 
 functions are ByteIO streams. TODO: convert all to this where appropriate.
 """
 
