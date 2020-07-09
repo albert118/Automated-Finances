@@ -31,27 +31,66 @@ import sys
 
 CMAP =  plt.get_cmap('Paired') # Global colour map variable
 
-class tx_data():
-	def __init__(self, description: str, date=Timestamp.today, value=0):
+class TxData():
+	def __init__(self, value=0, date=Timestamp.today(), description='', catAndSub ='', fileSource = os.path.abspath(''), **kwargs):
 		"""The transaction data class.
 
 		**Args:**
-			description(str):		A description associated with the transaction.
-			
-		**Kwargs:**
 			value(float):			The transaction value, default 0.
 			date(pandas.Timestamp):	The time of the transaction. Default current date.
+			description(str):		A description of the transaction record.
+			catAndSub(str):			A string description of the subcategory. TODO: Make foreign key ref? e.g. `utilities:Electricity`
+			fileSource(os.path):	The filepath to the original file for the transaction.
+
+		**Kwargs:**
+			data(dict):				A dictionary of data to create the object from.
+			TODO: implement.
 
 		**Example:**
-			>>> tx_data('new transaction', value=20.04)
+			>>> TxData('new transaction', value=20.04)
 		"""
 
 		if type(date) is not str:
 			self.date = date.strftime("%d-%m-%Y")
 		else:
 			self.date = date
-		self.val = value
-		self.desc = str(description)
+
+		self.value       = float(value)
+		self.description = str(description)
+		self.catAndSub   = str(catAndSub)
+		self.fileSource  = os.path.abspath(fileSource)
+		self.fileHash    = self._genFileHash(self.fileSource) # generate a hash code of the original file.
+
+	def _genFileHash(self) -> str:
+		# check if file already hashed.
+		pass
+
+	def getValue(self) -> float:
+		return self.value
+
+	def getDate(self) -> Timestamp:
+		return self.date
+
+	def getDescription(self) -> str:
+		return self.description
+
+	def getSubCat(self) -> str:
+		return self.catAndSub
+
+	def getFileSource(self) -> os.path:
+		return self.fileSource
+
+	def getFileHash(self) -> str:
+		return self.fileHash
+
+	def toDict(self) -> dict:
+		return {'Value': self.getValue(), 
+			 'Date': self.getDate(),
+			 'Description': self.getDescription(), 
+			 'CatAndSub': self.getSubCat(),
+			 'File Source': self.getFileSource(),
+			 'File Hash': self.getFileHash()
+			 }
 
 class AccountData():
 	"""Track several user finance details and accounts.
@@ -76,39 +115,37 @@ class AccountData():
 			val(list):	elems(timestamp, float, str):	Time of tx, val of tx, descrip. of tx.
 
 	**Methods:**
-		get_income(self, acc_frame)
-			get the income data from payslip and bank data, pass it back to 
-			AccountData as major attribute.
+		
 
-		get_bank_incomes(self, acc_frame)
-			get the income bank data, pass it back to get_income for handling.
+		getBankData(self) -> pd.DataFrame
+			get the income bank data, pass it back to getIncomes for handling.
 
-		get_payslips(self, payslip_name='payslip.pdf', true_col_header_index = 5)
-			get the income data from payslip data, pass it back to get_income 
+		getPayslips(self, payslip_name='payslip.pdf', true_col_header_index = 5) -> pd.DataFrame
+			get the income data from payslip data, pass it back to getIncomes 
 			for handling.
 
-		get_savings(self, acc_frame)
-			get the savings data from bank data, pass it back to AccountData 
-			as major attribute.
+		setExpenditures(self, data): Set the expenditures transaction data from given data.
+	
+		setSavings(self, data): Set the savings transaction data from given data.
 
-		get_expenditures(self, acc_frame)
-			get the expenditures data from bank data, pass it back to 
-			AccountData as major attribute
-		
-			display_income_stats(self, n_charts_top = 3, figsize=(10,10))
-			display_savings_stats(self, figsize=(10,10))
-			display_expenditure_stats(self, figsize=(10,10))
+		setIncomes(self, data):  Set the incomes transaction data from given data.
+
+		display_income_stats(self, n_charts_top = 3, figsize=(10,10)): 
+
+		display_savings_stats(self, figsize=(10,10)):
+
+		display_expenditure_stats(self, figsize=(10,10)): 
 
 	**Example:**
 		Call the charts then display several charts on the named categories
 
 		>>> import pandas as pd
-		>>> import dataframe_worker as w
+		>>> import accountdata as d
 		>>> df = pd.read_csv("CSVData.csv", names=["Date","Tx", "Description", "Curr_Balance"])
-		>>> a = w.account_data(df)
-		>>> a.display_income_stats()
-		>>> a.display_expenditure_stats()
-		>>> a.display_savings_stats()
+		>>> a = d.AccountData(df)
+		>>> from report import Report as r
+		# generates the output in the current directory with filename 'Personal Finance Report'
+		>>> r(a)
 	""" 
 
 	def __init__(self, **kwargs):
@@ -141,8 +178,6 @@ class AccountData():
 			'primary_income': 		env.str("primary_income"), 
 			'supplemental_income': 	env.str("supplemental_income"), 
 			'investment_income': 	env.str("investment_income"),
-			'latest_week_income': 	env.str("latest_week_income"),
-			'aggregate_income':		env.str("aggregate_income"),
 		}
 
 		self.EXPENDITURES = { 
@@ -158,91 +193,55 @@ class AccountData():
 
 		self.SAVINGS_IDS = [env("ACC_1"), env("ACC_2")]
 
-		########################################################################
-		# Raw data and processed frames
-		########################################################################
-		
-		# assign debug frame for testing if in kwargs
-		if "account_frame" in kwargs: account_frame = kwargs["account_frame"]
-		else: account_frame = self.get_bank_data()
-			
-		# initialize the account tracking data
-		self.incomes = self.get_income(account_frame) # payslip data retrieved here
-		self.savings = self.get_savings(account_frame) # filtering raw frame for savings data
-		self.expenditures = self.get_expenditures(account_frame) # filtering raw frame for expenditure data
+		if "account_frame" in kwargs:
+			# assign debug frame for testing if in kwargs
+			account_frame = kwargs["account_frame"]
 
+		########################################################################
+		# AccountData data structure
+		########################################################################
+
+		self.expenditures: pd.DataFrame
+		self.savings:      pd.DataFrame
+		self.incomes:      pd.DataFrame
+
+		# Call the sets for expenditures, savings and incomes with all the
+		# initial banking data (beauty of this is, more can be plugged in later!).
+		self.setExpenditures(account_frame)
+		self.setSavings(account_frame)
+		self.setIncomes(account_frame)
+
+		# income_week_data = self.getPayslips()
+		# incomes["latest_week_income"] = income_week_data
+		
 	############################################################################
-	# Getters
+	# Data Ingest
+	# 	Factories for sifting raw data and returning tx objects to the class.
 	############################################################################
-	def get_bank_data(self):
+	
+	def getBankData(self) -> pd.DataFrame:
 		"""Retrieve the latest bank data CSV scrape.
 		
 		**Returns:**
-			account_frame(pandas.DataFrame):	The class account frame. Essential input that must be called.
+			account_dataframe(pd.DataFrame):	A dataframe representing the account data parsed.
 		"""
 		
-		f_dir = os.path.join(self.BASE_DIR, self.SUB_FOLDERS[0])
-		fn = datetime.now().strftime("%d-%m-%Y")+".csv"
-		data = os.path.join(f_dir, fn)
-		account_frame = pd.read_csv(data, names=["Date","Tx", "Description", "Curr_Balance"])
+		f_dir  = os.path.join(self.BASE_DIR, self.SUB_FOLDERS[0])
+		# TODO: This function assumes that there is a CSV from the date that we have run.
+		# 	this then relies on being called at the correct time and is an easy way to 
+		#   create errors. FIX IT
+		fn_str = datetime.now().strftime("%d-%m-%Y")+".csv" 
+		file   = os.path.join(f_dir, fn_str)
+
+		account_dataframe = pd.read_csv(file, names=["Date","Tx", "Description", "Curr_Balance"])
+		# TODO: Check the below methods for possible dataframe duplication.
 		# format the account df and perform date-time refactoring
-		account_frame.Description = account_frame.Description.apply(str.upper)
-		account_frame.Date = pd.to_datetime(account_frame.Date, format="%d/%m/%Y")
+		account_dataframe.Description = account_dataframe.Description.apply(str.upper)
+		account_dataframe.Date        = pd.to_datetime(account_dataframe.Date, format="%d/%m/%Y")
 
-		return account_frame
-
-	def get_income(self, acc_frame) -> dict:
-		"""Get the user's bank details on income and combine with payroll data.
-		
-		**Args:**
-			acc_frame(pandas.DataFrame): The bank account frame to search.
-
-		**Returns:**
-			incomes(dict):
-				key(str):	['primary_income','supplemental_income','investment_income','latest_week_income','aggregate_income']
-					These are set by self.INCOMES as categories of income
-			vals(list):
-				elems(pandas.DataFrame): ['primary_income', 'supplemental_income', 'investment_income'].
-				vals(tx_data):			 Scraped from input sources.
-				vals(pandas.DataFrame): ['income_week_data', 'income_aggregate_data'].
-					Data scraped from payslip input. 'income_week_data' regards info from latest week payslip. 
-					'income_aggregate_data' regards info from sum'd values weeks to date.
-		"""
-
-		incomes = self.get_bank_incomes(acc_frame)
-		income_aggregate_data, income_week_data = self.get_payslips()
-		incomes["aggregate_income"] = income_aggregate_data
-		incomes["latest_week_income"] = income_week_data
-		return incomes
-
-	def get_bank_incomes(self, acc_frame) -> dict:
-		"""Get any aggregate income details present in banking data. 
-		
-		**Args:**
-			acc_frame(pandas.DataFrame): The bank account frame to search
-		
-		**Returns:**
-			incomes(dict):
-				key(str):	INCOME categories
-				vals(list): elems(tx_data):	A list of the income tx_data vals scraped, description is sub-cat.
-		"""
-
-		try:
-			# incomes dict and associated lists to add to
-			incomes = dict(zip(self.INCOME.keys(), ([] for i in range(len(self.INCOME)))))
-		except GeneratorExit:
-			pass
-
-		for cat_key, sub_cat_list in self.INCOME.items():
-			for i in range(0, len(acc_frame)):
-				if str(sub_cat_list).strip() in acc_frame.Description[i]:
-					incomes[cat_key].append(
-						tx_data(sub_cat_list, acc_frame.Date[i],  acc_frame.Tx[i])
-						)
-
-		return incomes
-
-	def get_payslips(self, true_col_header_index = 5):
+		return account_dataframe
+	
+	def getPayslips(self, true_col_header_index = 5) -> pd.DataFrame:
 		"""Retreive the payslip pdf and create aggregate and latest_week frames.
 		
 		Convert "structured" pdf to frames for easy use later, this is lots of
@@ -492,78 +491,205 @@ class AccountData():
 		
 		return aggregate_income, latest_week_income
 
-	def get_savings(self, acc_frame) -> dict:
-		"""Retrieve the savings transaction data from the bank account data.
+	############################################################################
+	# Setters
+	#	
+	############################################################################
 
-		Search the account frame for savings id's known to exist. Retreive the 
-		tx val, date and description to create a dictionary of tx objects.
+	def setExpenditures(self, data):
+		"""Set the expenditures transaction data.
 
-		**Args:**
-			acc_frame(pandas.DataFrame): The account frame to search
-		
-		**Returns:**
-			savings(dict):
-				key(str):	SAVINGS categories
-				vals(list): elems(tx_data):	A list of the savings tx_data vals scraped.
-		"""
+		.. warning:: This is a culminative process! Data going in is appended to existing data.
 
-		# savings dict and associated lists to add to
-		savings_data = dict(zip(self.SAVINGS_IDS, ([] for i in range(len(self.SAVINGS_IDS)))))
-
-		for i in range(len(acc_frame)):
-			desc_val = acc_frame.loc[i, "Description"]
-			tx_val   = acc_frame.loc[i, "Tx"]
-			# tx for savings should includes the acc_id ref
-			for _id in self.SAVINGS_IDS:
-				# test for outgoing as well as unique ref id
-				if _id in desc_val:
-					tx = tx_data(desc_val, acc_frame.loc[i, "Date"], tx_val)
-					savings_data[_id].append(tx)
-		return savings_data
-
-	def get_expenditures(self, acc_frame) -> dict:
-		"""Retreive the expenditures transaction data.
-
-		Search the account frame for the expenditure categories and 
-		sub-categories known to exist. Retrieve the tx, val, data and
-		description to create a dictionary of the categories and sub-cat
+		Search the account frame for the expenditure categories and \
+		sub-categories known to exist. Retrieve the tx, val, data and\
+		description to create a dictionary of the categories and sub-cat\
 		tx objects.
 
 		**Args:**
-			acc_frame(pandas.DataFrame): The account frame to search
-		
-		**Returns:**
-			expenditures(dict):
-				key(str):	EXPENDITURES categories
-				vals(list): elems(tx_data):	A list of the expenditure tx_data vals scraped, sub-cat is description.
+			data(pd.DataFrame):	The data to parse for savings information.
+
+			data(dict):			An alternate data structure. Note: This will\
+								consume further memory as a local copy will \
+								be made to convert the data to pd.DataFrame type.
+
+		**Raises:**
+			AttributeError:		If the datatype of of data is incorrect an attribute\
+								error will be raised.\
+			ValueError:			If an invalid typecast arises.
 		"""
 
-		# expenditures dict and associated lists to add to
-		expenditures = dict(zip(self.EXPENDITURES.keys(), ([] for i in range(len(self.EXPENDITURES)))))
+		expenditures_list = []
 
-		try:
-			# iterate through cateogries
-			for cat_key, sub_cat_list in self.EXPENDITURES.items():
-				# iterate through dataframe elements
-				for i in range(0, len(acc_frame)):
-					# iterate through sub-cats
-					for sub_cat in sub_cat_list:
-						# INSTRUMENTAL TO 'NOT FINDING' CAT's IS INCLUDING THE STRIP FUNCTION!!
-						search_term = str(sub_cat.upper()).strip()
-						idx = str(acc_frame.Description[i].upper()).find(search_term)
-						
-						if idx is not -1:
-							expenditures[cat_key].append(
-								tx_data(search_term, acc_frame.Date[i], acc_frame.Tx[i])
-								)
-		except Exception:
-			return dict(zip("1", tx_data("data_not_found")))
+		if type(data) is dict:
+			_data = pd.DataFrame(data)
+		elif type(data) is pd.DataFrame:
+			_data = data
+		else:
+			_data = None
+			raise AttributeError
+
+		for i in range(len(_data)):
+			try:
+				desc_str = str(_data.loc[i, "Description"])
+			except KeyError:
+				desc_str = '[GET EXPENDITURES: an error occured in retrieving this description]' 
+			
+			# iterate through category key values, then iterate through any subcategories foreach.
+			for category_str, subcat_list in self.EXPENDITURES.items():
+				for subCat_str in subcat_list:
+					idx = desc_str.upper().find(subCat_str.upper().strip()) # INSTRUMENTAL TO 'NOT FINDING' CAT's IS INCLUDING THE STRIP FUNCTION!!
 				
-		return expenditures
+					if idx == -1:
+						continue # wasn't found, skip this iteration.
+					else:
+						try:
+							tx_float = float(_data.loc[i, "Tx"])
+						except (KeyError, ValueError):
+							tx_float = 0.0
+
+						try:
+							date_Timestamp = (_data.loc[i, "Date"]).strftime("%d-%m-%Y")
+						except (KeyError, ValueError):
+							date_Timestamp = Timestamp.today
+
+						try:
+							filesource_path = _data.loc[i, "Filesource"]
+						except KeyError:
+							filesource_path = ' '
+
+						txObject_dict = TxData(tx_float, date_Timestamp, desc_str, category_str+':'+subCat_str, filesource_path).toDict()
+						expenditures_list.append(txObject_dict)
+
+		self.expenditures = pd.concat([self.expenditures, pd.DataFrame(data=expenditures_list)], axis=0)
+		return
+
+	def setSavings(self, data):
+		"""Set the savings transaction data from given data.
+
+		.. warning:: This is a culminative process! Data going in is appended to existing data.
+
+		Search the account frame for savings id's known to exist. Retrieve the \
+		tx val, date and description to create a list of tx objects (dicts).
+
+		**Args:**
+			data(pd.DataFrame):	The data to parse for savings information.
+
+			data(dict):			An alternate data structure. Note: This will\
+								consume further memory as a local copy will \
+								be made to convert the data to pd.DataFrame type.\
+		**Raises:**
+			AttributeError:		If the datatype of of data is incorrect an attribute\
+								error will be raised.\
+			ValueError:			If an invalid typecast arises.
+		"""
+
+		savings_list = []
+
+		if type(data) is dict:
+			_data = pd.DataFrame(data)
+		elif type(data) is pd.DataFrame:
+			_data = data
+		else:
+			_data = None
+			raise AttributeError
+
+		for i in range(len(_data)):
+			try:
+				desc_str = str(_data.loc[i, "Description"])
+			except KeyError:
+				desc_str = '[GET SAVINGS: an error occured in retrieving this description]' 
+
+			try:
+				tx_float = float(_data.loc[i, "Tx"])
+			except (KeyError, ValueError):
+				tx_float = 0.0
+
+			try:
+				date_Timestamp = (_data.loc[i, "Date"]).strftime("%d-%m-%Y")
+			except (KeyError, ValueError):
+				date_Timestamp = Timestamp.today
+
+			try:
+				filesource_path = _data.loc[i, "Filesource"]
+			except KeyError:
+				filesource_path = ' '
+		
+			# tx for savings should includes the category (account id typically) ref
+			for cat in self.SAVINGS_IDS:
+				if cat in desc_str:
+					txObject_dict = TxData(tx_float, date_Timestamp, desc_str, cat.append(": "), filesource_path).toDict()
+					savings_list.append(txObject_dict)
+
+		self.savings = pd.concat([self.savings, pd.DataFrame(data=savings_list)], axis=0)
+		return
+
+	def setIncomes(self, data):
+		"""Set the the incomes transaction data.
+
+		.. warning:: This is a culminative process! Data going in is appended to existing data.
+		
+		**Args:**
+			data(pd.DataFrame):	The data to parse for savings information.
+
+			data(dict):			An alternate data structure. Note: This will\
+								consume further memory as a local copy will \
+								be made to convert the data to pd.DataFrame type.\
+
+		**Raises:**
+			AttributeError:		If the datatype of of data is incorrect an attribute\
+								error will be raised.\
+			ValueError:			If an invalid typecast arises.
+		"""
+
+		incomes_list = []
+
+		if type(data) is dict:
+			_data = pd.DataFrame(data)
+		elif type(data) is pd.DataFrame:
+			_data = data
+		else:
+			_data = None
+			raise AttributeError
+
+		for i in range(len(_data)):
+			try:
+				desc_str = str(_data.loc[i, "Description"])
+			except KeyError:
+				desc_str = '[GET INCOMES: an error occured in retrieving this description]'
+		
+			for category_str, subcat_list in self.INCOMES.items():
+				for subCat_str in subcat_list:
+					idx = desc_str.upper().find(subCat_str.upper().strip()) # INSTRUMENTAL TO 'NOT FINDING' CAT's IS INCLUDING THE STRIP FUNCTION!!
+				
+					if idx == -1:
+						continue # wasn't found, skip this iteration.
+					else:
+						try:
+							tx_float = float(_data.loc[i, "Tx"])
+						except (KeyError, ValueError):
+							tx_float = 0.0
+
+						try:
+							date_Timestamp = (_data.loc[i, "Date"]).strftime("%d-%m-%Y")
+						except (KeyError, ValueError):
+							date_Timestamp = Timestamp.today
+
+						try:
+							filesource_path = _data.loc[i, "Filesource"]
+						except KeyError:
+							filesource_path = ' '
+
+						txObject_dict = TxData(tx_float, date_Timestamp, desc_str, category_str+':'+subCat_str, filesource_path).toDict()
+						incomes_list.append(txObject_dict)
+
+		self.incomes = pd.concat([self.incomes, pd.DataFrame(data=incomes_list)], axis=0)
+		return
 
 	############################################################################
 	# Displayers
 	############################################################################
+
 	def display_income_stats(self, n_charts_top = 3, figsize=(10,10)):
 		""" Display some visualisations and print outs of the income data.
 	
@@ -622,7 +748,7 @@ class AccountData():
 			)
 			fig.add_subplot(ax)
 
-		# read a list from our tx_data object list
+		# read a list from our TxData object list
 		income_raw = [tx.val for tx in self.incomes['primary_income']]
 		# now use the raw data to create a bar chart of NET income data
 		ax_bar_income_raw = plt.Subplot(fig, inner_bottom[0])

@@ -19,6 +19,7 @@ def safe_environ():
 	"""
 
 	default_warn = "[ENVIRON SETTINGS] Environment settings not found"
+	
 	try:
 		# grab local environ settings and attempt to read settings file
 		env = Env()
