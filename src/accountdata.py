@@ -59,7 +59,7 @@ class TxData():
 		self.description = str(description)
 		self.catAndSub   = str(catAndSub)
 		self.fileSource  = os.path.abspath(fileSource)
-		self.fileHash    = self._genFileHash(self.fileSource) # generate a hash code of the original file.
+		self.fileHash    = self._genFileHash() # generate a hash code of the original file.
 
 	def _genFileHash(self) -> str:
 		# check if file already hashed.
@@ -174,10 +174,10 @@ class AccountData():
 		########################################################################
 		
 		# TODO : dynamic unpacking of listed vars for categories
-		self.INCOME = {
-			'primary_income': 		env.str("primary_income"), 
-			'supplemental_income': 	env.str("supplemental_income"), 
-			'investment_income': 	env.str("investment_income"),
+		self.INCOMES = {
+			'primary_income': 		env.list("primary_income"), 
+			'supplemental_income': 	env.list("supplemental_income"), 
+			'investment_income': 	env.list("investment_income"),
 		}
 
 		self.EXPENDITURES = { 
@@ -201,9 +201,9 @@ class AccountData():
 		# AccountData data structure
 		########################################################################
 
-		self.expenditures: pd.DataFrame
-		self.savings:      pd.DataFrame
-		self.incomes:      pd.DataFrame
+		self.expenditures = pd.DataFrame()
+		self.savings      = pd.DataFrame()
+		self.incomes      = pd.DataFrame()
 
 		# Call the sets for expenditures, savings and incomes with all the
 		# initial banking data (beauty of this is, more can be plugged in later!).
@@ -538,28 +538,39 @@ class AccountData():
 			# iterate through category key values, then iterate through any subcategories foreach.
 			for category_str, subcat_list in self.EXPENDITURES.items():
 				for subCat_str in subcat_list:
-					idx = desc_str.upper().find(subCat_str.upper().strip()) # INSTRUMENTAL TO 'NOT FINDING' CAT's IS INCLUDING THE STRIP FUNCTION!!
+					idx = desc_str.upper().find(subCat_str.upper()) # INSTRUMENTAL TO 'NOT FINDING' CAT's IS INCLUDING THE STRIP FUNCTION!!
 				
 					if idx == -1:
 						continue # wasn't found, skip this iteration.
 					else:
 						try:
 							tx_float = float(_data.loc[i, "Tx"])
+							if tx_float > 0:
+								continue
 						except (KeyError, ValueError):
 							tx_float = 0.0
 
 						try:
-							date_Timestamp = (_data.loc[i, "Date"]).strftime("%d-%m-%Y")
-						except (KeyError, ValueError):
+							date_Timestamp = datetime.strptime(_data.loc[i, "Date"], "%d/%m/%Y")
+						except ValueError:
+							try:
+								date_Timestamp = datetime.strptime(_data.loc[i, "Date"], "%d-%m-%Y")
+							except KeyError:
+								date_Timestamp = Timestamp.today
+						except KeyError:
 							date_Timestamp = Timestamp.today
 
 						try:
 							filesource_path = _data.loc[i, "Filesource"]
 						except KeyError:
 							filesource_path = ' '
-
+						
 						txObject_dict = TxData(tx_float, date_Timestamp, desc_str, category_str+':'+subCat_str, filesource_path).toDict()
+						print(category_str+':'+subCat_str)
+						print(txObject_dict)
 						expenditures_list.append(txObject_dict)
+						break
+					break
 
 		self.expenditures = pd.concat([self.expenditures, pd.DataFrame(data=expenditures_list)], axis=0)
 		return
@@ -606,8 +617,13 @@ class AccountData():
 				tx_float = 0.0
 
 			try:
-				date_Timestamp = (_data.loc[i, "Date"]).strftime("%d-%m-%Y")
-			except (KeyError, ValueError):
+				date_Timestamp = datetime.strptime(_data.loc[i, "Date"], "%d/%m/%Y")
+			except ValueError:
+				try:
+					date_Timestamp = datetime.strptime(_data.loc[i, "Date"], "%d-%m-%Y")
+				except KeyError:
+						date_Timestamp = Timestamp.today
+			except KeyError:
 				date_Timestamp = Timestamp.today
 
 			try:
@@ -618,8 +634,9 @@ class AccountData():
 			# tx for savings should includes the category (account id typically) ref
 			for cat in self.SAVINGS_IDS:
 				if cat in desc_str:
-					txObject_dict = TxData(tx_float, date_Timestamp, desc_str, cat.append(": "), filesource_path).toDict()
+					txObject_dict = TxData(tx_float, date_Timestamp, desc_str, cat+": ", filesource_path).toDict()
 					savings_list.append(txObject_dict)
+					break
 
 		self.savings = pd.concat([self.savings, pd.DataFrame(data=savings_list)], axis=0)
 		return
@@ -660,19 +677,27 @@ class AccountData():
 		
 			for category_str, subcat_list in self.INCOMES.items():
 				for subCat_str in subcat_list:
-					idx = desc_str.upper().find(subCat_str.upper().strip()) # INSTRUMENTAL TO 'NOT FINDING' CAT's IS INCLUDING THE STRIP FUNCTION!!
-				
+					idx = desc_str.upper().find(subCat_str.upper()) # INSTRUMENTAL TO 'NOT FINDING' CAT's IS INCLUDING THE STRIP FUNCTION!!
+					
 					if idx == -1:
 						continue # wasn't found, skip this iteration.
 					else:
 						try:
 							tx_float = float(_data.loc[i, "Tx"])
+							if tx_float < 0:
+								continue
+
 						except (KeyError, ValueError):
 							tx_float = 0.0
 
 						try:
-							date_Timestamp = (_data.loc[i, "Date"]).strftime("%d-%m-%Y")
-						except (KeyError, ValueError):
+							date_Timestamp = datetime.strptime(_data.loc[i, "Date"], "%d/%m/%Y")
+						except ValueError:
+							try:
+								date_Timestamp = datetime.strptime(_data.loc[i, "Date"], "%d-%m-%Y")
+							except KeyError:
+								date_Timestamp = Timestamp.today
+						except KeyError:
 							date_Timestamp = Timestamp.today
 
 						try:
@@ -682,7 +707,8 @@ class AccountData():
 
 						txObject_dict = TxData(tx_float, date_Timestamp, desc_str, category_str+':'+subCat_str, filesource_path).toDict()
 						incomes_list.append(txObject_dict)
-
+						break
+					break
 		self.incomes = pd.concat([self.incomes, pd.DataFrame(data=incomes_list)], axis=0)
 		return
 
