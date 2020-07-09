@@ -1,14 +1,19 @@
-__doc__="""Data layer management of the automated finance project. Returns of most 
-functions are ByteIO streams. TODO: convert all to this where appropriate.
 """
+.. module:: AccountData
+	:platform: Unix, Windows
+	:synopsis: Data layer management of the automated finance project. 
+.. moduleauthor:: Albert Ferguson <albertferguson118@gmail.com>
 
-__all__ = ("AccountData")
+.. note:: Returns of most functions are ByteIO streams.
+.. note:: TODO convert all to this where appropriate.
+"""
 
 # core
 from core import environConfig, graphing, images
 
 # third party libs
 import pandas as pd
+from pandas import Timestamp
 import numpy as np
 from tabula import read_pdf
 import matplotlib.pyplot as plt
@@ -27,25 +32,26 @@ import sys
 CMAP =  plt.get_cmap('Paired') # Global colour map variable
 
 class tx_data():
-		from pandas import Timestamp
+	def __init__(self, description: str, date=Timestamp.today, value=0):
+		"""The transaction data class.
 
-		def __init__(self, description: str, date=Timestamp.today, value=0):
-			"""
-			Parameters
-			----------
-			date : pandas.Timestamp
-				the time of the transaction, default today
-			value : float
-				the transaction value, default 0
-			description : str
-				a description associated with the transaction
-			"""
-			if type(date) is not str:
-				self.date = date.strftime("%d-%m-%Y")
-			else:
-				self.date = date
-			self.val = value
-			self.desc = str(description)
+		**Args:**
+			description(str):		A description associated with the transaction.
+			
+		**Kwargs:**
+			value(float):			The transaction value, default 0.
+			date(pandas.Timestamp):	The time of the transaction. Default current date.
+
+		**Example:**
+			>>> tx_data('new transaction', value=20.04)
+		"""
+
+		if type(date) is not str:
+			self.date = date.strftime("%d-%m-%Y")
+		else:
+			self.date = date
+		self.val = value
+		self.desc = str(description)
 
 class AccountData():
 	"""Track several user finance details and accounts.
@@ -53,54 +59,47 @@ class AccountData():
 	This is an object designed to track several finance accounts of the
 	user. It aims to combine multiple finance related accounts into one
 	location for visualisation and informative statistics. 
-
-	Attributes
-	----------
-	incomes : dict
-		keys : ['primary_income', 'supplemental_income', 
-		'investment_income', 'latest_week_income','aggregate_income']
-		
-		Each key accesses the respective data of the descriptor.
-		TODO : adjust comments to match upcoming changes on incomes data structs
-	TODO : adjust comments of savings and expenditures to update changes to ds'
-	savings : dict
-		key : str
-			description of savings
-		val : list : timestamp, float
-			data for described savings
-	expenditures : dict
-		key : str
-			category as defined in local.env and fetched by __init__
-		val : list : timestamp, float, str
-			time of tx, val of tx, descrip. of tx
-
-	Methods
-	----------
-	get_income(self, acc_frame)
-		get the income data from payslip and bank data, pass it back to 
-		AccountData as major attribute.
-
-	get_bank_incomes(self, acc_frame)
-		get the income bank data, pass it back to get_income for handling.
-
-	get_payslips(self, payslip_name='payslip.pdf', true_col_header_index = 5)
-		get the income data from payslip data, pass it back to get_income 
-		for handling.
-
-	get_savings(self, acc_frame)
-		get the savings data from bank data, pass it back to AccountData 
-		as major attribute.
-
-	get_expenditures(self, acc_frame)
-		get the expenditures data from bank data, pass it back to 
-		AccountData as major attribute
 	
-		display_income_stats(self, n_charts_top = 3, figsize=(10,10))
-		display_savings_stats(self, figsize=(10,10))
-		display_expenditure_stats(self, figsize=(10,10))
+	**Attributes:**
+		incomes(dict): Each key accesses the respective data of the descriptor.
+			keys:	['primary_income', 'supplemental_income', 'investment_income', 'latest_week_income', 'aggregate_income']
+			
+			.. note:: TODO Adjust comments to match upcoming changes on incomes data structs.
+			.. note:: TODO Adjust comments of savings and expenditures to update changes to ds'.
 
-		Examples
-		----------
+		savings(dict):
+			key(str):	Description of savings.
+			val(list):	elems(timestamp, float):	For described savings.
+
+		expenditures(dict):
+			key(str): 	Category as defined in local.env and fetched by __init__.
+			val(list):	elems(timestamp, float, str):	Time of tx, val of tx, descrip. of tx.
+
+	**Methods:**
+		get_income(self, acc_frame)
+			get the income data from payslip and bank data, pass it back to 
+			AccountData as major attribute.
+
+		get_bank_incomes(self, acc_frame)
+			get the income bank data, pass it back to get_income for handling.
+
+		get_payslips(self, payslip_name='payslip.pdf', true_col_header_index = 5)
+			get the income data from payslip data, pass it back to get_income 
+			for handling.
+
+		get_savings(self, acc_frame)
+			get the savings data from bank data, pass it back to AccountData 
+			as major attribute.
+
+		get_expenditures(self, acc_frame)
+			get the expenditures data from bank data, pass it back to 
+			AccountData as major attribute
+		
+			display_income_stats(self, n_charts_top = 3, figsize=(10,10))
+			display_savings_stats(self, figsize=(10,10))
+			display_expenditure_stats(self, figsize=(10,10))
+
+	**Example:**
 		Call the charts then display several charts on the named categories
 
 		>>> import pandas as pd
@@ -113,15 +112,21 @@ class AccountData():
 	""" 
 
 	def __init__(self, **kwargs):
+		"""Track several user finance details and accounts.
+
+		**Kwargs:** 	
+			*optional kwarg overrides to add these for testing, etc.*
+
+			account_frame(pandas.DataFrame): 	Banking data input.
+			payslip_frame(pandas.DataFrame):	Payslip data input.
+
+		**Example:**
+			>>> import pandas as pd
+			>>> import dataframe_worker as w
+			>>> df = pd.read_csv("CSVData.csv", names=["Date","Tx", "Description", "Curr_Balance"])
+			>>> a = w.account_data(df)
 		"""
-		Parameters
-		----------
-		* optional kwarg overrides to add these for testing, etc... *
-		account_frame : pandas.DataFrame
-			Banking data input
-		payslip_frame : pandas.DataFrame
-			Payslip data input
-		"""
+
 		# ensure safe env on account object instantiation
 		env = environConfig.safe_environ()
 		self.BASE_DIR = env("PARENT_DIR")
@@ -172,10 +177,8 @@ class AccountData():
 	def get_bank_data(self):
 		"""Retrieve the latest bank data CSV scrape.
 		
-		Returns
-		----------
-		account_frame : pandas.DataFrame
-			The class account frame. Essential input that must be called
+		**Returns:**
+			account_frame(pandas.DataFrame):	The class account frame. Essential input that must be called.
 		"""
 		
 		f_dir = os.path.join(self.BASE_DIR, self.SUB_FOLDERS[0])
@@ -191,31 +194,19 @@ class AccountData():
 	def get_income(self, acc_frame) -> dict:
 		"""Get the user's bank details on income and combine with payroll data.
 		
-		Parameters
-		----------
-		acc_frame : pandas.DataFrame
-			The bank account frame to search
+		**Args:**
+			acc_frame(pandas.DataFrame): The bank account frame to search.
 
-		Returns
-		----------
-		incomes : dict
-			key : str
-				[
-					'primary_income',
-					'supplemental_income',
-					'investment_income',
-					'latest_week_income',
-					'aggregate_income',
-				]
-				These are set by self.INCOMES as categories of income
-			vals : list, pandas.DataFrame
-				list : 'primary_income', 'supplemental_income', 'investment_income'.
-				vals : tx_data scraped from input sources.
-				
-				pandas.DataFrame : 'income_week_data', 'income_aggregate_data'.
-				vals : data scraped from payslip input. income_week_data 
-					regards info from latest week payslip. income_aggregate_data
-					regards info from sum'd values weeks to date.
+		**Returns:**
+			incomes(dict):
+				key(str):	['primary_income','supplemental_income','investment_income','latest_week_income','aggregate_income']
+					These are set by self.INCOMES as categories of income
+			vals(list):
+				elems(pandas.DataFrame): ['primary_income', 'supplemental_income', 'investment_income'].
+				vals(tx_data):			 Scraped from input sources.
+				vals(pandas.DataFrame): ['income_week_data', 'income_aggregate_data'].
+					Data scraped from payslip input. 'income_week_data' regards info from latest week payslip. 
+					'income_aggregate_data' regards info from sum'd values weeks to date.
 		"""
 
 		incomes = self.get_bank_incomes(acc_frame)
@@ -227,24 +218,17 @@ class AccountData():
 	def get_bank_incomes(self, acc_frame) -> dict:
 		"""Get any aggregate income details present in banking data. 
 		
-		Parameters
-		----------
-		acc_frame : pandas.DataFrame
-			The bank account frame to search
+		**Args:**
+			acc_frame(pandas.DataFrame): The bank account frame to search
 		
-		Returns
-		----------
-		incomes : dict
-			key : str
-				INCOME categories
-			vals : list : tx_data
-				A list of the income tx_data vals scraped, 
-				description is sub-cat.
+		**Returns:**
+			incomes(dict):
+				key(str):	INCOME categories
+				vals(list): elems(tx_data):	A list of the income tx_data vals scraped, description is sub-cat.
 		"""
 
-		# incomes dict and associated lists to add to
-		
 		try:
+			# incomes dict and associated lists to add to
 			incomes = dict(zip(self.INCOME.keys(), ([] for i in range(len(self.INCOME)))))
 		except GeneratorExit:
 			pass
@@ -264,45 +248,30 @@ class AccountData():
 		Convert "structured" pdf to frames for easy use later, this is lots of
 		icky scraping/conversion code.
 		
-		Parameters
-		----------
-		payslip_name : str
-			The name of the file to scrape
-			default is the download name default. This is usually for testing
-			purposes.
+		**Args:**
+			payslip_name(str): The name of the file to scrape. Default is the
+				download name default. This is usually for testing purposes.
 
-		true_col_header_index : int
-			This value is used to relatively find further dataframes from the pdf.
-
+		true_col_header_index(int): This value is used to relatively find further dataframes from the pdf.
 			The row index where column titles are actually located. This
 			over-rides the default behaviour of tabula guessing where this
 			would be otherwise (and being wrong typically).
 			
-			Yes this is a magic number.
+			**Yes this is a magic number.**
+			.. note:: No it isn't tested for everything, only for my example with ADP.
+			.. note:: Inspect this value yourself if the data is incorrectly parsed.
 
-			No it isn't tested for everything, only for my example with ADP.
+		**Notes:**
+			.. note:: This function is intended to call up the latest payslip for
+				weekly displays, the stats function for income then aggregates data for
+				longer timeframes.
 
-			Inspect this value yourself if the data is incorrectly parsed.
+		**Returns:**
+			latest_week_income(pandas.DataFrame): The the dataframe with hourly data, commissions and deductions.
+				['Description_Hours', 'Rate', 'Hours', 'Value_Hours', 'Description_Other', 'Tax_Ind', 'Value_Other']
 
-		Notes
-		-----
-		This function is intended to call up the latest payslip for
-		weekly displays, the stats function for income then aggregates data for
-		longer timeframes.
-
-		Returns
-		-------
-		latest_week_income : pandas.DataFrame
-				The the dataframe with hourly data, commissions and deductions.
-				[
-					Description_Hours, Rate, Hours, 
-				  	Value_Hours, Description_Other, Tax_Ind, 
-					Value_Other
-				]
-
-		aggregate_income : pandas.DataFrame
-			The aggregate income values 
-			[Gross, Taxable Income, Post Tax Allows/Deds, Tax, NET]
+			aggregate_income( pandas.DataFrame): The aggregate income values.
+				['Gross', 'Taxable Income', 'Post Tax Allows/Deds', 'Tax', 'NET']
 		"""
 
 		########################################################################
@@ -312,10 +281,10 @@ class AccountData():
 		def _rename_headers(dataframe, header_index, cols_default_headers):
 			""" Rename the column headers from default guesses to the correct values.
 			
-			Also performs some housekeeping by reindexing and dropping the header row. 
+			.. note:: Also performs some housekeeping by reindexing and dropping the header row. 
 			
-			Due to the nature of separating a frame like this, it is possible to create duplicate 
-			header titles if _split_merged_columns is applied next, keep this in mind.
+			.. note:: Due to the nature of separating a frame like this, it is possible to create duplicate 
+				header titles if _split_merged_columns is applied next, keep this in mind.
 			"""
 
 			try:
@@ -525,9 +494,17 @@ class AccountData():
 
 	def get_savings(self, acc_frame) -> dict:
 		"""Retrieve the savings transaction data from the bank account data.
-		
+
 		Search the account frame for savings id's known to exist. Retreive the 
 		tx val, date and description to create a dictionary of tx objects.
+
+		**Args:**
+			acc_frame(pandas.DataFrame): The account frame to search
+		
+		**Returns:**
+			savings(dict):
+				key(str):	SAVINGS categories
+				vals(list): elems(tx_data):	A list of the savings tx_data vals scraped.
 		"""
 
 		# savings dict and associated lists to add to
@@ -551,6 +528,14 @@ class AccountData():
 		sub-categories known to exist. Retrieve the tx, val, data and
 		description to create a dictionary of the categories and sub-cat
 		tx objects.
+
+		**Args:**
+			acc_frame(pandas.DataFrame): The account frame to search
+		
+		**Returns:**
+			expenditures(dict):
+				key(str):	EXPENDITURES categories
+				vals(list): elems(tx_data):	A list of the expenditure tx_data vals scraped, sub-cat is description.
 		"""
 
 		# expenditures dict and associated lists to add to
@@ -580,7 +565,16 @@ class AccountData():
 	# Displayers
 	############################################################################
 	def display_income_stats(self, n_charts_top = 3, figsize=(10,10)):
-		""" Display some visualisations and print outs of the income data. """
+		""" Display some visualisations and print outs of the income data.
+	
+		**Kwargs:**
+			n_charts_top(int):	Number of charts across. Default is 3.
+
+			figsize(int tuple):	The size of the figure to generate. Default is (10, 10).
+		
+		**Returns:**
+			images.image_buffer_to_svg(PIL.image): An SVG PIL image.
+		"""
 
 		# setup the grids for holding our plots, attach them to the same figure
 		fig = plt.figure(figsize=figsize)
@@ -645,7 +639,14 @@ class AccountData():
 	def display_savings_stats(self, figsize=(10,10)):
 		"""Generate the display for savings data, based on bank account drawn data. 
 		
-		TODO: Integrate options for REST Super"""
+		.. note:: TODO Integrate options for REST Super.
+		
+		**Kwargs:**
+			figsize(int tuple):	The size of the figure to generate. Default is (10, 10).
+		
+		**Returns:**
+			images.image_buffer_to_svg(PIL.image): An SVG PIL image.
+		"""
 
 		fig = plt.figure(figsize=figsize)
 		# Display savings across accounts, bar per acc., i.e. bar figure
@@ -704,7 +705,14 @@ class AccountData():
 		return images.img_buffer_to_svg(fig)
 
 	def display_expenditure_stats(self, figsize=(10,10)):
-		""" Display some visualisations and print outs of the income data. """
+		""" Display some visualisations and print outs of the income data.
+
+		**Kwargs:**
+			figsize(int tuple):	The size of the figure to generate. Default is (10, 10).
+		
+		**Returns:**
+			images.image_buffer_to_svg(PIL.image): An SVG PIL image.
+		"""
 		# Generate a pie chart of expenditures
 		# Generate a bar chart of each category vs. total budget
 
