@@ -190,7 +190,7 @@ class AccountData():
 
 	def get_income(self, acc_frame) -> dict:
 		"""Get the user's bank details on income and combine with payroll data.
-		
+		aaaa
 		Parameters
 		----------
 		acc_frame : pandas.DataFrame
