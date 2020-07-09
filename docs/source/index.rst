@@ -6,9 +6,18 @@
 Welcome to Automated-Finances's documentation!
 ==============================================
 
+.. image:: _static/logo.png
+	:alt: 'Automated.Finances'_
+	:align: center
+
+.. add any filenames bereft of filetypes (eg .rst) here to be included into
+   the documentation.
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
+   accountdata
+
 
 
 
@@ -18,3 +27,7 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+
+
+.. _Automated.Finances: https://github.com/albert118/Automated-Finances

@@ -15,7 +15,6 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('src'))
 
 # -- Project information -----------------------------------------------------
 
@@ -159,3 +158,9 @@ this_path = os.path.dirname(this_path)
 # root_for_relative_js_paths = js_root
 
 python_package_source = os.path.abspath(os.path.join(this_path, 'src'))
+core_path             = os.path.join(python_package_source, 'core')
+
+sys.path.insert(0, os.path.abspath('src'))
+sys.path.insert(0, core_path)
+sys.path.insert(0, python_package_source)
+

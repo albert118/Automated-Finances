@@ -1,14 +1,19 @@
-__doc__="""Data layer management of the automated finance project. Returns of most 
-functions are ByteIO streams. TODO: convert all to this where appropriate.
 """
+.. module:: AccountData
+	:platform: Unix, Windows
+	:synopsis: Data layer management of the automated finance project. 
+.. moduleauthor:: Albert Ferguson <albertferguson118@gmail.com>
 
-__all__ = ("AccountData")
+.. note:: Returns of most functions are ByteIO streams.
+.. note:: TODO convert all to this where appropriate.
+"""
 
 # core
 from core import environConfig, graphing, images
 
 # third party libs
 import pandas as pd
+from pandas import Timestamp
 import numpy as np
 from tabula import read_pdf
 import matplotlib.pyplot as plt
@@ -27,25 +32,26 @@ import sys
 CMAP =  plt.get_cmap('Paired') # Global colour map variable
 
 class tx_data():
-		from pandas import Timestamp
+	def __init__(self, description: str, date=Timestamp.today, value=0):
+		"""The transaction data class.
 
-		def __init__(self, description: str, date=Timestamp.today, value=0):
-			"""
-			Parameters
-			----------
-			date : pandas.Timestamp
-				the time of the transaction, default today
-			value : float
-				the transaction value, default 0
-			description : str
-				a description associated with the transaction
-			"""
-			if type(date) is not str:
-				self.date = date.strftime("%d-%m-%Y")
-			else:
-				self.date = date
-			self.val = value
-			self.desc = str(description)
+		Args:
+			description(str):		A description associated with the transaction.
+			
+		Kwargs:
+			value(float):			The transaction value, default 0.
+			date(pandas.Timestamp):	The time of the transaction. Default current date.
+
+		Example:
+			>>> tx_data('new transaction', value=20.04)
+		"""
+
+		if type(date) is not str:
+			self.date = date.strftime("%d-%m-%Y")
+		else:
+			self.date = date
+		self.val = value
+		self.desc = str(description)
 
 class AccountData():
 	"""Track several user finance details and accounts.
@@ -62,7 +68,7 @@ class AccountData():
 		
 		Each key accesses the respective data of the descriptor.
 		TODO : adjust comments to match upcoming changes on incomes data structs
-	TODO : adjust comments of savings and expenditures to update changes to ds'
+		TODO : adjust comments of savings and expenditures to update changes to ds'
 	savings : dict
 		key : str
 			description of savings
@@ -110,6 +116,7 @@ class AccountData():
 		>>> a.display_income_stats()
 		>>> a.display_expenditure_stats()
 		>>> a.display_savings_stats()
+
 	""" 
 
 	def __init__(self, **kwargs):
@@ -122,6 +129,7 @@ class AccountData():
 		payslip_frame : pandas.DataFrame
 			Payslip data input
 		"""
+		
 		# ensure safe env on account object instantiation
 		env = environConfig.safe_environ()
 		self.BASE_DIR = env("PARENT_DIR")
