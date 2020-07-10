@@ -19,7 +19,7 @@ def auto_label(rects, ax, font_size):
 		height = rect.get_height()
 		ax.annotate('{:.2f}'.format(height), 
 			xy=(rect.get_x() + rect.get_width() / 2, height), 
-			xytext=(0, 5*np.sign(height)), # position on "top" of bar (x, y)
+			xytext=(0, 8*np.sign(height)), # position on "top" of bar (x, y), xy is the origin for this coord
 			textcoords="offset points", fontsize=font_size,
 			ha='center', va='center_baseline')
 
@@ -77,7 +77,7 @@ def pie_chart(labels, values, ax, category=None, LABELS=None, size=0.5, font_siz
 		ax.set_title(category.capitalize().replace('_', ' '), weight="bold")
 	return
 
-def bar_chart(labels, values, ax, label=None):
+def bar_chart(labels: list, values: list, ax, label=None, rotation=15):
 	"""Bar chart constructor for given labels and sizes.
 
 	Parameters
@@ -104,9 +104,14 @@ def bar_chart(labels, values, ax, label=None):
 	# calculate length of x-axis then scale to match pie charts above
 	x = np.arange(len(labels))
 	scaled_x = [1.6*i for i in x]
+
+	if sum(values) < 0: # set the range of the function's data to avoid clipping
+		ax.set_ylim([0, min(values)*1.15])
+		ax.invert_yaxis()
+
 	rects = ax.bar(scaled_x, values, width, color=[CMAP(i) for i in range(0,n_labels)], label=label)
 	ax.set_xticks(scaled_x)
-	ax.set_xticklabels([label.capitalize().replace('_', ' ') for label in labels])
+	ax.set_xticklabels([label.capitalize().replace('_', ' ') for label in labels], rotation=rotation)
 	auto_label(rects, ax,font_size)
 
 def scatter_plotter(X, Y, ax, area=10, ALPHA=0.9, _cmap=CMAP):
