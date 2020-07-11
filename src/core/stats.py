@@ -164,7 +164,7 @@ def normaliser(x):
 # 	appended, hence: previously known ordered additions of stats are in 
 # 	the same index positon and keyword order
 
-# 	Further, updates the payslip data by recalling get_payslips
+# 	Further, updates the payslip data by recalling getPayslips
 # 	"""
 
 # 	# start by refeshing the categories from local.env file

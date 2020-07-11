@@ -31,27 +31,66 @@ import sys
 
 CMAP =  plt.get_cmap('Paired') # Global colour map variable
 
-class tx_data():
-	def __init__(self, description: str, date=Timestamp.today, value=0):
+class TxData():
+	def __init__(self, value=0, date=Timestamp.today(), description='', catAndSub ='', fileSource = os.path.abspath(''), **kwargs):
 		"""The transaction data class.
 
 		**Args:**
-			description(str):		A description associated with the transaction.
-			
-		**Kwargs:**
 			value(float):			The transaction value, default 0.
 			date(pandas.Timestamp):	The time of the transaction. Default current date.
+			description(str):		A description of the transaction record.
+			catAndSub(str):			A string description of the subcategory. TODO: Make foreign key ref? e.g. `utilities:Electricity`
+			fileSource(os.path):	The filepath to the original file for the transaction.
+
+		**Kwargs:**
+			data(dict):				A dictionary of data to create the object from.
+			TODO: implement.
 
 		**Example:**
-			>>> tx_data('new transaction', value=20.04)
+			>>> TxData('new transaction', value=20.04)
 		"""
 
 		if type(date) is not str:
 			self.date = date.strftime("%d-%m-%Y")
 		else:
 			self.date = date
-		self.val = value
-		self.desc = str(description)
+
+		self.value       = float(value)
+		self.description = str(description)
+		self.catAndSub   = str(catAndSub)
+		self.fileSource  = os.path.abspath(fileSource)
+		self.fileHash    = self._genFileHash() # generate a hash code of the original file.
+
+	def _genFileHash(self) -> str:
+		# check if file already hashed.
+		pass
+
+	def getValue(self) -> float:
+		return self.value
+
+	def getDate(self) -> Timestamp:
+		return self.date
+
+	def getDescription(self) -> str:
+		return self.description
+
+	def getSubCat(self) -> str:
+		return self.catAndSub
+
+	def getFileSource(self) -> os.path:
+		return self.fileSource
+
+	def getFileHash(self) -> str:
+		return self.fileHash
+
+	def toDict(self) -> dict:
+		return {'Value': self.getValue(), 
+			 'Date': self.getDate(),
+			 'Description': self.getDescription(), 
+			 'CatAndSub': self.getSubCat(),
+			 'File Source': self.getFileSource(),
+			 'File Hash': self.getFileHash()
+			 }
 
 class AccountData():
 	"""Track several user finance details and accounts.
@@ -76,39 +115,37 @@ class AccountData():
 			val(list):	elems(timestamp, float, str):	Time of tx, val of tx, descrip. of tx.
 
 	**Methods:**
-		get_income(self, acc_frame)
-			get the income data from payslip and bank data, pass it back to 
-			AccountData as major attribute.
+		
 
-		get_bank_incomes(self, acc_frame)
-			get the income bank data, pass it back to get_income for handling.
+		getBankData(self) -> pd.DataFrame
+			get the income bank data, pass it back to getIncomes for handling.
 
-		get_payslips(self, payslip_name='payslip.pdf', true_col_header_index = 5)
-			get the income data from payslip data, pass it back to get_income 
+		getPayslips(self, payslip_name='payslip.pdf', true_col_header_index = 5) -> pd.DataFrame
+			get the income data from payslip data, pass it back to getIncomes 
 			for handling.
 
-		get_savings(self, acc_frame)
-			get the savings data from bank data, pass it back to AccountData 
-			as major attribute.
+		setExpenditures(self, data): Set the expenditures transaction data from given data.
+	
+		setSavings(self, data): Set the savings transaction data from given data.
 
-		get_expenditures(self, acc_frame)
-			get the expenditures data from bank data, pass it back to 
-			AccountData as major attribute
-		
-			display_income_stats(self, n_charts_top = 3, figsize=(10,10))
-			display_savings_stats(self, figsize=(10,10))
-			display_expenditure_stats(self, figsize=(10,10))
+		setIncomes(self, data):  Set the incomes transaction data from given data.
+
+		display_income_stats(self, n_charts_top = 3, figsize=(10,10)): 
+
+		display_savings_stats(self, figsize=(10,10)):
+
+		display_expenditure_stats(self, figsize=(10,10)): 
 
 	**Example:**
 		Call the charts then display several charts on the named categories
 
 		>>> import pandas as pd
-		>>> import dataframe_worker as w
+		>>> import accountdata as d
 		>>> df = pd.read_csv("CSVData.csv", names=["Date","Tx", "Description", "Curr_Balance"])
-		>>> a = w.account_data(df)
-		>>> a.display_income_stats()
-		>>> a.display_expenditure_stats()
-		>>> a.display_savings_stats()
+		>>> a = d.AccountData(account_frame=df)
+		>>> from report import Report as r
+		# generates the output in the current directory with filename 'Personal Finance Report'
+		>>> r(a)
 	""" 
 
 	def __init__(self, **kwargs):
@@ -137,12 +174,10 @@ class AccountData():
 		########################################################################
 		
 		# TODO : dynamic unpacking of listed vars for categories
-		self.INCOME = {
-			'primary_income': 		env.str("primary_income"), 
-			'supplemental_income': 	env.str("supplemental_income"), 
-			'investment_income': 	env.str("investment_income"),
-			'latest_week_income': 	env.str("latest_week_income"),
-			'aggregate_income':		env.str("aggregate_income"),
+		self.INCOMES = {
+			'primary_income': 		env.list("primary_income"), 
+			'supplemental_income': 	env.list("supplemental_income"), 
+			'investment_income': 	env.list("investment_income"),
 		}
 
 		self.EXPENDITURES = { 
@@ -158,91 +193,55 @@ class AccountData():
 
 		self.SAVINGS_IDS = [env("ACC_1"), env("ACC_2")]
 
-		########################################################################
-		# Raw data and processed frames
-		########################################################################
-		
-		# assign debug frame for testing if in kwargs
-		if "account_frame" in kwargs: account_frame = kwargs["account_frame"]
-		else: account_frame = self.get_bank_data()
-			
-		# initialize the account tracking data
-		self.incomes = self.get_income(account_frame) # payslip data retrieved here
-		self.savings = self.get_savings(account_frame) # filtering raw frame for savings data
-		self.expenditures = self.get_expenditures(account_frame) # filtering raw frame for expenditure data
+		if "account_frame" in kwargs:
+			# assign debug frame for testing if in kwargs
+			account_frame = kwargs["account_frame"]
 
+		########################################################################
+		# AccountData data structure
+		########################################################################
+
+		self.expenditures = pd.DataFrame()
+		self.savings      = pd.DataFrame()
+		self.incomes      = pd.DataFrame()
+
+		# Call the sets for expenditures, savings and incomes with all the
+		# initial banking data (beauty of this is, more can be plugged in later!).
+		self.setExpenditures(account_frame)
+		self.setSavings(account_frame)
+		self.setIncomes(account_frame)
+
+		# income_week_data = self.getPayslips()
+		# incomes["latest_week_income"] = income_week_data
+		
 	############################################################################
-	# Getters
+	# Data Ingest
+	# 	Factories for sifting raw data and returning tx objects to the class.
 	############################################################################
-	def get_bank_data(self):
+	
+	def getBankData(self) -> pd.DataFrame:
 		"""Retrieve the latest bank data CSV scrape.
 		
 		**Returns:**
-			account_frame(pandas.DataFrame):	The class account frame. Essential input that must be called.
+			account_dataframe(pd.DataFrame):	A dataframe representing the account data parsed.
 		"""
 		
-		f_dir = os.path.join(self.BASE_DIR, self.SUB_FOLDERS[0])
-		fn = datetime.now().strftime("%d-%m-%Y")+".csv"
-		data = os.path.join(f_dir, fn)
-		account_frame = pd.read_csv(data, names=["Date","Tx", "Description", "Curr_Balance"])
+		f_dir  = os.path.join(self.BASE_DIR, self.SUB_FOLDERS[0])
+		# TODO: This function assumes that there is a CSV from the date that we have run.
+		# 	this then relies on being called at the correct time and is an easy way to 
+		#   create errors. FIX IT
+		fn_str = datetime.now().strftime("%d-%m-%Y")+".csv" 
+		file   = os.path.join(f_dir, fn_str)
+
+		account_dataframe = pd.read_csv(file, names=["Date","Tx", "Description", "Curr_Balance"])
+		# TODO: Check the below methods for possible dataframe duplication.
 		# format the account df and perform date-time refactoring
-		account_frame.Description = account_frame.Description.apply(str.upper)
-		account_frame.Date = pd.to_datetime(account_frame.Date, format="%d/%m/%Y")
+		account_dataframe.Description = account_dataframe.Description.apply(str.upper)
+		account_dataframe.Date        = pd.to_datetime(account_dataframe.Date, format="%d/%m/%Y")
 
-		return account_frame
-
-	def get_income(self, acc_frame) -> dict:
-		"""Get the user's bank details on income and combine with payroll data.
-		
-		**Args:**
-			acc_frame(pandas.DataFrame): The bank account frame to search.
-
-		**Returns:**
-			incomes(dict):
-				key(str):	['primary_income','supplemental_income','investment_income','latest_week_income','aggregate_income']
-					These are set by self.INCOMES as categories of income
-			vals(list):
-				elems(pandas.DataFrame): ['primary_income', 'supplemental_income', 'investment_income'].
-				vals(tx_data):			 Scraped from input sources.
-				vals(pandas.DataFrame): ['income_week_data', 'income_aggregate_data'].
-					Data scraped from payslip input. 'income_week_data' regards info from latest week payslip. 
-					'income_aggregate_data' regards info from sum'd values weeks to date.
-		"""
-
-		incomes = self.get_bank_incomes(acc_frame)
-		income_aggregate_data, income_week_data = self.get_payslips()
-		incomes["aggregate_income"] = income_aggregate_data
-		incomes["latest_week_income"] = income_week_data
-		return incomes
-
-	def get_bank_incomes(self, acc_frame) -> dict:
-		"""Get any aggregate income details present in banking data. 
-		
-		**Args:**
-			acc_frame(pandas.DataFrame): The bank account frame to search
-		
-		**Returns:**
-			incomes(dict):
-				key(str):	INCOME categories
-				vals(list): elems(tx_data):	A list of the income tx_data vals scraped, description is sub-cat.
-		"""
-
-		try:
-			# incomes dict and associated lists to add to
-			incomes = dict(zip(self.INCOME.keys(), ([] for i in range(len(self.INCOME)))))
-		except GeneratorExit:
-			pass
-
-		for cat_key, sub_cat_list in self.INCOME.items():
-			for i in range(0, len(acc_frame)):
-				if str(sub_cat_list).strip() in acc_frame.Description[i]:
-					incomes[cat_key].append(
-						tx_data(sub_cat_list, acc_frame.Date[i],  acc_frame.Tx[i])
-						)
-
-		return incomes
-
-	def get_payslips(self, true_col_header_index = 5):
+		return account_dataframe
+	
+	def getPayslips(self, true_col_header_index = 5) -> pd.DataFrame:
 		"""Retreive the payslip pdf and create aggregate and latest_week frames.
 		
 		Convert "structured" pdf to frames for easy use later, this is lots of
@@ -492,147 +491,320 @@ class AccountData():
 		
 		return aggregate_income, latest_week_income
 
-	def get_savings(self, acc_frame) -> dict:
-		"""Retrieve the savings transaction data from the bank account data.
+	############################################################################
+	# Setters
+	#	
+	############################################################################
 
-		Search the account frame for savings id's known to exist. Retreive the 
-		tx val, date and description to create a dictionary of tx objects.
+	def setExpenditures(self, data):
+		"""Set the expenditures transaction data.
 
-		**Args:**
-			acc_frame(pandas.DataFrame): The account frame to search
-		
-		**Returns:**
-			savings(dict):
-				key(str):	SAVINGS categories
-				vals(list): elems(tx_data):	A list of the savings tx_data vals scraped.
-		"""
+		.. warning:: This is a culminative process! Data going in is appended to existing data.
 
-		# savings dict and associated lists to add to
-		savings_data = dict(zip(self.SAVINGS_IDS, ([] for i in range(len(self.SAVINGS_IDS)))))
-
-		for i in range(len(acc_frame)):
-			desc_val = acc_frame.loc[i, "Description"]
-			tx_val   = acc_frame.loc[i, "Tx"]
-			# tx for savings should includes the acc_id ref
-			for _id in self.SAVINGS_IDS:
-				# test for outgoing as well as unique ref id
-				if _id in desc_val:
-					tx = tx_data(desc_val, acc_frame.loc[i, "Date"], tx_val)
-					savings_data[_id].append(tx)
-		return savings_data
-
-	def get_expenditures(self, acc_frame) -> dict:
-		"""Retreive the expenditures transaction data.
-
-		Search the account frame for the expenditure categories and 
-		sub-categories known to exist. Retrieve the tx, val, data and
-		description to create a dictionary of the categories and sub-cat
+		Search the account frame for the expenditure categories and \
+		sub-categories known to exist. Retrieve the tx, val, data and\
+		description to create a dictionary of the categories and sub-cat\
 		tx objects.
 
 		**Args:**
-			acc_frame(pandas.DataFrame): The account frame to search
-		
-		**Returns:**
-			expenditures(dict):
-				key(str):	EXPENDITURES categories
-				vals(list): elems(tx_data):	A list of the expenditure tx_data vals scraped, sub-cat is description.
+			data(pd.DataFrame):	The data to parse for savings information.
+
+			data(dict):			An alternate data structure. Note: This will\
+								consume further memory as a local copy will \
+								be made to convert the data to pd.DataFrame type.
+
+		**Raises:**
+			AttributeError:		If the datatype of of data is incorrect an attribute\
+								error will be raised.\
+			ValueError:			If an invalid typecast arises.
 		"""
 
-		# expenditures dict and associated lists to add to
-		expenditures = dict(zip(self.EXPENDITURES.keys(), ([] for i in range(len(self.EXPENDITURES)))))
+		expenditures_list = []
 
-		try:
-			# iterate through cateogries
-			for cat_key, sub_cat_list in self.EXPENDITURES.items():
-				# iterate through dataframe elements
-				for i in range(0, len(acc_frame)):
-					# iterate through sub-cats
-					for sub_cat in sub_cat_list:
-						# INSTRUMENTAL TO 'NOT FINDING' CAT's IS INCLUDING THE STRIP FUNCTION!!
-						search_term = str(sub_cat.upper()).strip()
-						idx = str(acc_frame.Description[i].upper()).find(search_term)
-						
-						if idx is not -1:
-							expenditures[cat_key].append(
-								tx_data(search_term, acc_frame.Date[i], acc_frame.Tx[i])
-								)
-		except Exception:
-			return dict(zip("1", tx_data("data_not_found")))
+		if type(data) is dict:
+			_data = pd.DataFrame(data)
+		elif type(data) is pd.DataFrame:
+			_data = data
+		else:
+			_data = None
+			raise AttributeError
+
+		for i in range(len(_data)):
+			try:
+				desc_str = str(_data.loc[i, "Description"])
+			except KeyError:
+				desc_str = '[GET EXPENDITURES: an error occured in retrieving this description]' 
+			
+			# iterate through category key values, then iterate through any subcategories foreach.
+			for category_str, subcat_list in self.EXPENDITURES.items():
+				for subCat_str in subcat_list:
+					idx = desc_str.upper().find(subCat_str.upper()) # INSTRUMENTAL TO 'NOT FINDING' CAT's IS INCLUDING THE STRIP FUNCTION!!
 				
-		return expenditures
+					if idx == -1:
+						continue # wasn't found, skip this iteration.
+					else:
+						try:
+							tx_float = float(_data.loc[i, "Tx"])
+							if tx_float > 0:
+								continue
+						except (KeyError, ValueError):
+							tx_float = 0.0
+
+						try:
+							date_Timestamp = datetime.strptime(_data.loc[i, "Date"], "%d/%m/%Y")
+						except ValueError:
+							try:
+								date_Timestamp = datetime.strptime(_data.loc[i, "Date"], "%d-%m-%Y")
+							except KeyError:
+								date_Timestamp = Timestamp.today
+						except KeyError:
+							date_Timestamp = Timestamp.today
+
+						try:
+							filesource_path = _data.loc[i, "Filesource"]
+						except KeyError:
+							filesource_path = ' '
+						
+						txObject_dict = TxData(tx_float, date_Timestamp, desc_str, category_str+':'+subCat_str, filesource_path).toDict()
+						expenditures_list.append(txObject_dict)
+						break
+					break
+
+		self.expenditures = pd.concat([self.expenditures, pd.DataFrame(data=expenditures_list)], axis=0)
+		return
+
+	def setSavings(self, data):
+		"""Set the savings transaction data from given data.
+
+		.. warning:: This is a culminative process! Data going in is appended to existing data.
+
+		Search the account frame for savings id's known to exist. Retrieve the \
+		tx val, date and description to create a list of tx objects (dicts).
+
+		**Args:**
+			data(pd.DataFrame):	The data to parse for savings information.
+
+			data(dict):			An alternate data structure. Note: This will\
+								consume further memory as a local copy will \
+								be made to convert the data to pd.DataFrame type.\
+		**Raises:**
+			AttributeError:		If the datatype of of data is incorrect an attribute\
+								error will be raised.\
+			ValueError:			If an invalid typecast arises.
+		"""
+
+		savings_list = []
+
+		if type(data) is dict:
+			_data = pd.DataFrame(data)
+		elif type(data) is pd.DataFrame:
+			_data = data
+		else:
+			_data = None
+			raise AttributeError
+
+		for i in range(len(_data)):
+			try:
+				desc_str = str(_data.loc[i, "Description"])
+			except KeyError:
+				desc_str = '[GET SAVINGS: an error occured in retrieving this description]' 
+
+			try:
+				tx_float = float(_data.loc[i, "Tx"])
+			except (KeyError, ValueError):
+				tx_float = 0.0
+
+			try:
+				date_Timestamp = datetime.strptime(_data.loc[i, "Date"], "%d/%m/%Y")
+			except ValueError:
+				try:
+					date_Timestamp = datetime.strptime(_data.loc[i, "Date"], "%d-%m-%Y")
+				except KeyError:
+						date_Timestamp = Timestamp.today
+			except KeyError:
+				date_Timestamp = Timestamp.today
+
+			try:
+				filesource_path = _data.loc[i, "Filesource"]
+			except KeyError:
+				filesource_path = ' '
+		
+			# tx for savings should includes the category (account id typically) ref
+			for cat in self.SAVINGS_IDS:
+				if cat in desc_str:
+					txObject_dict = TxData(tx_float, date_Timestamp, desc_str, cat+": ", filesource_path).toDict()
+					savings_list.append(txObject_dict)
+					break
+
+		self.savings = pd.concat([self.savings, pd.DataFrame(data=savings_list)], axis=0)
+		return
+
+	def setIncomes(self, data):
+		"""Set the the incomes transaction data.
+
+		.. warning:: This is a culminative process! Data going in is appended to existing data.
+		
+		**Args:**
+			data(pd.DataFrame):	The data to parse for savings information.
+
+			data(dict):			An alternate data structure. Note: This will\
+								consume further memory as a local copy will \
+								be made to convert the data to pd.DataFrame type.\
+
+		**Raises:**
+			AttributeError:		If the datatype of of data is incorrect an attribute\
+								error will be raised.\
+			ValueError:			If an invalid typecast arises.
+		"""
+
+		incomes_list = []
+
+		if type(data) is dict:
+			_data = pd.DataFrame(data)
+		elif type(data) is pd.DataFrame:
+			_data = data
+		else:
+			_data = None
+			raise AttributeError
+
+		for i in range(len(_data)):
+			try:
+				desc_str = str(_data.loc[i, "Description"])
+			except KeyError:
+				desc_str = '[GET INCOMES: an error occured in retrieving this description]'
+		
+			for category_str, subcat_list in self.INCOMES.items():
+				for subCat_str in subcat_list:
+					idx = desc_str.upper().find(subCat_str.upper()) # INSTRUMENTAL TO 'NOT FINDING' CAT's IS INCLUDING THE STRIP FUNCTION!!
+					
+					if idx == -1:
+						continue # wasn't found, skip this iteration.
+					else:
+						try:
+							tx_float = float(_data.loc[i, "Tx"])
+							if tx_float < 0:
+								continue
+
+						except (KeyError, ValueError):
+							tx_float = 0.0
+
+						try:
+							date_Timestamp = datetime.strptime(_data.loc[i, "Date"], "%d/%m/%Y")
+						except ValueError:
+							try:
+								date_Timestamp = datetime.strptime(_data.loc[i, "Date"], "%d-%m-%Y")
+							except KeyError:
+								date_Timestamp = Timestamp.today
+						except KeyError:
+							date_Timestamp = Timestamp.today
+
+						try:
+							filesource_path = _data.loc[i, "Filesource"]
+						except KeyError:
+							filesource_path = ' '
+
+						txObject_dict = TxData(tx_float, date_Timestamp, desc_str, category_str+':'+subCat_str, filesource_path).toDict()
+						incomes_list.append(txObject_dict)
+						break
+					break
+		self.incomes = pd.concat([self.incomes, pd.DataFrame(data=incomes_list)], axis=0)
+		return
 
 	############################################################################
 	# Displayers
 	############################################################################
-	def display_income_stats(self, n_charts_top = 3, figsize=(10,10)):
+
+	def display_income_stats(self, figsize=(10,10)):
 		""" Display some visualisations and print outs of the income data.
 	
-		**Kwargs:**
-			n_charts_top(int):	Number of charts across. Default is 3.
-
-			figsize(int tuple):	The size of the figure to generate. Default is (10, 10).
-		
+		**Args:**
+			figsize(int tuple):	The size of the figure to generate. Default is (10, 10).	
 		**Returns:**
 			images.image_buffer_to_svg(PIL.image): An SVG PIL image.
 		"""
 
 		# setup the grids for holding our plots, attach them to the same figure
-		fig = plt.figure(figsize=figsize)
-		outer = gridspec.GridSpec(2, 1, wspace=0.2, hspace=0.2)
 		# inner_**** are for use with plotting, outer is purely spacing
-		inner_top = gridspec.GridSpecFromSubplotSpec(1, n_charts_top, subplot_spec=outer[0],
-					wspace=0.1, hspace=0.1)
-		inner_bottom = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[1],
-					wspace=0.1, hspace=0.1)
+		n_charts_top = len(self.incomes)
+		fig          = plt.figure(figsize=figsize)
+		outer        = gridspec.GridSpec(2, 1, wspace=0.2, hspace=0.2)
+		inner_top    = gridspec.GridSpecFromSubplotSpec(1, n_charts_top, subplot_spec=outer[0], wspace=0.1, hspace=0.1)
+		inner_bottom = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[1],wspace=0.1, hspace=0.1)
 
+		# i = 0
+
+		labelsDes_list 	= self.incomes.Description.values
+		labelsCat_list 	= self.incomes.CatAndSub.values
+		# dates_list		= self.incomes.Date.values
+		value_list      = self.incomes.Value.values
+
+		# Retrieve a title name for the graph to be made.
+		catIdx_int    = labelsCat_list[0].find(":")
+		if catIdx_int == -1:
+			title_str = "Uknown Income Data"
+		else:
+			title_str = str(labelsCat_list[0][:catIdx_int])
+		
+		currentIncome_ax = plt.Subplot(fig, inner_top[0])
+		currentIncome_ax.set_prop_cycle(color=[CMAP(j) for j in range(1,10)])
+		graphing.pie_chart(labelsDes_list, value_list, currentIncome_ax, category=title_str, LABELS=False)
+		fig.add_subplot(currentIncome_ax)
+		# i += 1
+
+		# if i == n_charts_top:
+		# 	break
+		
+		########################################################################
+		# LEGACY
+		########################################################################
 		# we want to display pie charts showing; hours, hourly + comms dist, income + tax dist
 		# incomes contains 2 frames and three sub-dicts, the data we need for charts is in frames
-		income_stats = self.incomes["latest_week_income"]
-		income_agg = self.incomes["aggregate_income"]
+		# income_stats = self.incomes["latest_week_income"]
+		# income_agg = self.incomes["aggregate_income"]
 
-		# labels
-		hour_dist_labels = income_stats["Description"].values
-		hour_plus_comms_labels = income_stats["Description_Other"].values
-		income_tax_dist_labels = ["Tax","NET income"] 
-		# data
-		hour_dist_data = np.array(income_stats["Value"].values, dtype=np.float32)
-		hour_plus_comms_data = np.array(income_stats["Value_Other"].values, dtype=np.float32)
-		income_tax_dist_data = [
-			# access the first element, janky I know..
-			np.array(income_agg.Tax.values, dtype=np.float32)[0], 
-			np.array(income_agg["NET INCOME"].values, dtype=np.float32)[0],			] 
+		# # labels
+		# hour_dist_labels = income_stats["Description"].values
+		# hour_plus_comms_labels = income_stats["Description_Other"].values
+		# income_tax_dist_labels = ["Tax","NET income"] 
+		# # data
+		# hour_dist_data = np.array(income_stats["Value"].values, dtype=np.float32)
+		# hour_plus_comms_data = np.array(income_stats["Value_Other"].values, dtype=np.float32)
+		# income_tax_dist_data = [
+		# 	# access the first element, janky I know..
+		# 	np.array(income_agg.Tax.values, dtype=np.float32)[0], 
+		# 	np.array(income_agg["NET INCOME"].values, dtype=np.float32)[0],			] 
 		
-		# now create the subplots for each pie chart
-		ax_hour_dist = plt.Subplot(fig, inner_top[0])
-		ax_hour_plus_comms = plt.Subplot(fig, inner_top[1])
-		ax_income_tax = plt.Subplot(fig, inner_top[2])
+		# # now create the subplots for each pie chart
+		# ax_hour_dist = plt.Subplot(fig, inner_top[0])
+		# ax_hour_plus_comms = plt.Subplot(fig, inner_top[1])
+		# ax_income_tax = plt.Subplot(fig, inner_top[2])
 
-		list_ax = [ax_hour_dist, ax_hour_plus_comms, ax_income_tax]
-		label_val_dicts = [
-			dict(zip(hour_dist_labels,       hour_dist_data.tolist())), 
-			dict(zip(hour_plus_comms_labels, hour_plus_comms_data.tolist())), 
-			dict(zip(income_tax_dist_labels, income_tax_dist_data)),
-			]
-		list_titles = ["Hourly Distribution", "Other", "Income-Taxation Distribution"]
-		# compelete by generating charts and setting CMAP
-		for i, ax in enumerate(list_ax):
-			ax.set_prop_cycle(color=[CMAP(j) for j in range(1,10)])
-			graphing.pie_chart(label_val_dicts[i].keys(), label_val_dicts[i].values(),
-			ax, category=list_titles[i], LABELS=False
-			)
-			fig.add_subplot(ax)
+		# list_ax = [ax_hour_dist, ax_hour_plus_comms, ax_income_tax]
+		# label_val_dicts = [
+		# 	dict(zip(hour_dist_labels,       hour_dist_data.tolist())), 
+		# 	dict(zip(hour_plus_comms_labels, hour_plus_comms_data.tolist())), 
+		# 	dict(zip(income_tax_dist_labels, income_tax_dist_data)),
+		# 	]
+		# list_titles = ["Hourly Distribution", "Other", "Income-Taxation Distribution"]
+		# # compelete by generating charts and setting CMAP
+		# for i, ax in enumerate(list_ax):
+		# 	ax.set_prop_cycle(color=[CMAP(j) for j in range(1,10)])
+		# 	graphing.pie_chart(label_val_dicts[i].keys(), label_val_dicts[i].values(),
+		# 	ax, category=list_titles[i], LABELS=False
+		# 	)
+		# 	fig.add_subplot(ax)
 
-		# read a list from our tx_data object list
-		income_raw = [tx.val for tx in self.incomes['primary_income']]
-		# now use the raw data to create a bar chart of NET income data
-		ax_bar_income_raw = plt.Subplot(fig, inner_bottom[0])
-		bar_labels = ["Week {}".format(i) for i in range(len(income_raw))]
-		# reverse to give time proceeding to the right, more intuitive to user
-		graphing.bar_chart(bar_labels, income_raw, ax_bar_income_raw)
-		ax_bar_income_raw.set_ylabel('Income')
-		ax_bar_income_raw.set_xlabel('Week of Income')
-		plt.suptitle("Income Statistics")
-		fig.add_subplot(ax_bar_income_raw)
+		# # read a list from our TxData object list
+		# income_raw = [tx.val for tx in self.incomes['primary_income']]
+		# # now use the raw data to create a bar chart of NET income data
+		# ax_bar_income_raw = plt.Subplot(fig, inner_bottom[0])
+		# bar_labels = ["Week {}".format(i) for i in range(len(income_raw))]
+		# # reverse to give time proceeding to the right, more intuitive to user
+		# graphing.bar_chart(bar_labels, income_raw, ax_bar_income_raw)
+		# ax_bar_income_raw.set_ylabel('Income')
+		# ax_bar_income_raw.set_xlabel('Week of Income')
+		# plt.suptitle("Income Statistics")
+		# fig.add_subplot(ax_bar_income_raw)
 
 		return images.img_buffer_to_svg(fig)
 
@@ -655,52 +827,89 @@ class AccountData():
 		#	plot 1 month best-case (optimal saving)
 		
 		# set the display stack of two charts with grid_spec
+
+		# setup the grids for holding our plots, attach them to the same figure
+		n_charts_top = len(self.savings)
 		outer_grid_spec = gridspec.GridSpec(2, 1, wspace=0.2, hspace=0.2)
 		disp_top 		= gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer_grid_spec[0],
 					wspace=0.1, hspace=0.1)
 		disp_bottom 	= gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer_grid_spec[1],
 					wspace=0.1, hspace=0.1)
 
-		# multiple savings sources, grab the raw data
-		savings_data = [[] for i in range(len(self.savings))]
-		savings_dates = [[] for i in range(len(self.savings))]
-		lbls = tuple(key for key in self.savings.keys())
+		labelsDes_list 	= self.savings.Description.values
+		labelsCat_list 	= self.savings.CatAndSub.values
+		dates_list		= self.savings.Date.values
+		value_list      = self.savings.Value.values
+
 		
-		for i, key in enumerate(self.savings):
-			savings_data[i] = [abs(tx.val) for tx in self.savings[key]]
-			savings_dates[i] = [tx.date for tx in self.savings[key]]
+
+		# Retrieve a title name for the graph to be made.
+		catIdx_int    = labelsCat_list[0].find(":")
+		if catIdx_int == -1:
+			title_str = "Uknown Income Data"
+		else:
+			title_str = str(labelsCat_list[0][:catIdx_int])
+		
+		barChartSavings_ax	= plt.Subplot(fig, disp_bottom[0])
+		graphing.bar_chart(labelsDes_list.tolist(), value_list.tolist(), barChartSavings_ax)
+		barChartSavings_ax.set_ylabel('Savings')
+		barChartSavings_ax.set_xlabel('Date and Description')
+		fig.add_subplot(barChartSavings_ax)
+
+		totalSavings_int = sum(value_list)
+		scatterChartSavings_ax = plt.Subplot(fig, disp_top[0])
+		graphing.scatter_plotter(dates_list, value_list, scatterChartSavings_ax, area=totalSavings_int)
+		scatterChartSavings_ax.set_ylabel("Savings Data")
+		scatterChartSavings_ax.set_xlabel("Savings Date")
+		fig.add_subplot(scatterChartSavings_ax)
+		plt.suptitle("Savings Statistics")
+		plt.xticks(rotation=30)
+
+		
+		########################################################################
+		# LEGACY
+		########################################################################
+
+		# multiple savings sources, grab the raw data
+		# savings_data = [[] for i in range(len(self.savings))]
+		# savings_dates = [[] for i in range(len(self.savings))]
+		# lbls = tuple(key for key in self.savings.keys())
+		
+		# for i, key in enumerate(self.savings):
+		# 	savings_data[i] = [abs(tx.val) for tx in self.savings[key]]
+		# 	savings_dates[i] = [tx.date for tx in self.savings[key]]
 
 		# Add dates to savings labels
-		for i in range(len(lbls)):
-			# grab the label prefix and reset with correct list numbers
-			savings_lbls = [[] for i in range(len(self.savings))]
-			for j in range(len(savings_dates[i])):
-				savings_lbls[i].append(lbls[i] + ' ' + savings_dates[i][j])
+		# for i in range(len(lbls)):
+		# 	# grab the label prefix and reset with correct list numbers
+		# 	savings_lbls = [[] for i in range(len(self.savings))]
+		# 	for j in range(len(savings_dates[i])):
+		# 		savings_lbls[i].append(lbls[i] + ' ' + savings_dates[i][j])
 
 		# TODO, not neccessairly the same week, this is intended to be used in the scatter vs. savings in same week
 		# to make it simpler, draw income net from the bank acc. data not the payslip, make the file's time-stamps work for us
-		income_total_curr = float(self.incomes['aggregate_income'].Gross[0])
-		total_savings = 0
+		# income_total_curr = float(self.incomes['aggregate_income'].Gross[0])
+		# total_savings = 0
 
-		for savings in savings_data:
-			total_savings += sum(savings)
-		savings_perc = total_savings/income_total_curr		
+		# for savings in savings_data:
+		# 	total_savings += sum(savings)
+		# savings_perc = total_savings/income_total_curr		
 
 		# TODO : Add support for graphing all 3 sub cats for accounts (combined or seperate whatever...)
 		# bar chart subplot on disp_bottom
-		ax_savings_bar	= plt.Subplot(fig, disp_bottom[0])
-		graphing.bar_chart(savings_lbls[1], savings_data[1], ax_savings_bar)
-		ax_savings_bar.set_ylabel('Savings')
-		ax_savings_bar.set_xlabel('Date and Description')
-		fig.add_subplot(ax_savings_bar)
+		# ax_savings_bar	= plt.Subplot(fig, disp_bottom[0])
+		# graphing.bar_chart(savings_lbls[1], savings_data[1], ax_savings_bar)
+		# ax_savings_bar.set_ylabel('Savings')
+		# ax_savings_bar.set_xlabel('Date and Description')
+		# fig.add_subplot(ax_savings_bar)
 
 		# now create the trendline and place it in disp_top
-		ax_savings_trend = plt.Subplot(fig, disp_top[0])
-		graphing.scatter_plotter(savings_dates[1], savings_data[1], ax_savings_trend, area=savings_perc)
-		ax_savings_trend.set_ylabel("Savings Data")
-		ax_savings_trend.set_xlabel("Savings Date")
-		fig.add_subplot(ax_savings_trend)
-		plt.suptitle("Savings Statistics")
+		# ax_savings_trend = plt.Subplot(fig, disp_top[0])
+		# graphing.scatter_plotter(savings_dates[1], savings_data[1], ax_savings_trend, area=savings_perc)
+		# ax_savings_trend.set_ylabel("Savings Data")
+		# ax_savings_trend.set_xlabel("Savings Date")
+		# fig.add_subplot(ax_savings_trend)
+		# plt.suptitle("Savings Statistics")
 		
 		return images.img_buffer_to_svg(fig)
 
@@ -713,47 +922,83 @@ class AccountData():
 		**Returns:**
 			images.image_buffer_to_svg(PIL.image): An SVG PIL image.
 		"""
-		# Generate a pie chart of expenditures
-		# Generate a bar chart of each category vs. total budget
-
-		totals = []		
-		# create the outer subplot that will hold the boxplot and subplots
-		fig = plt.figure(figsize=figsize)
+			
+		# setup the grids for holding our plots, attach them to the same figure
+		# inner_**** are for use with plotting, outer is purely spacing
+		colCtr_int = math.ceil(len(self.expenditures.keys()))
+		fig          = plt.figure(figsize=figsize)
 		outer = gridspec.GridSpec(2, 1, figure=fig, height_ratios=[3,1])
-		col_count = math.ceil(len(self.expenditures.keys())/2)
-		inner_top = gridspec.GridSpecFromSubplotSpec(2, col_count, subplot_spec=outer[0],
-					wspace=0.2, hspace=0.2)
-		inner_bottom = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[1],
-					wspace=0.05, hspace=0.1)
+		inner_top    = gridspec.GridSpecFromSubplotSpec(1, colCtr_int, subplot_spec=outer[0], wspace=0.1, hspace=0.1)
+		inner_bottom = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[1],wspace=0.1, hspace=0.1)
 
-		key_counter = 0
-		for key, term_list in self.expenditures.items():
-			label_vals = {}
-			for tx in term_list:
-				new_value = tx.val
-				new_label = tx.desc
-				if new_label not in label_vals:
-					label_vals[new_label] = new_value
-				else:
-					label_vals[new_label] += new_value
+		labelsCat_dict = {'unknown expenditures': 0} # tracks total expenditures per category
+		# labelsDes_list 	= self.expenditures.Description.values
+		labelsCat_list 	= self.expenditures.CatAndSub.values
+		# dates_list		= self.expenditures.Date.values
+		value_list      = self.expenditures.Value.values
 
-			# new category creates a new axis on the upper plot region
-			if key_counter < col_count:
-				axN = fig.add_subplot(inner_top[0, key_counter]) # this is also one of the cleaner ways to create the axis
+		for i in range(len(self.expenditures)):
+			catIdx_int = labelsCat_list[i].find(":")
+			if catIdx_int == -1:
+				labelsCat_dict['unknown expenditures'] += value_list[i]
 			else:
-				axN = fig.add_subplot(inner_top[1, key_counter - col_count]) # this is also one of the cleaner ways to create the axis
-
-			axN.set_prop_cycle(color=[CMAP(i) for i in range(1,10)])
-			graphing.pie_chart(label_vals.keys(), label_vals.values(), axN, category=key)
-			totals.append(sum(label_vals.values()))
-			key_counter -=- 1
-
-		plt.suptitle("Expenditure Statistics")
-		ax_rect = fig.add_subplot(inner_bottom[0])
-		graphing.bar_chart(list(self.expenditures.keys()), totals, ax_rect)
+				cat_str = str(labelsCat_list[i][:catIdx_int])
+				if cat_str not in labelsCat_dict:
+					labelsCat_dict[cat_str] = value_list[i]
+				else:
+					labelsCat_dict['unknown expenditures'] += value_list[i]
 		
-		ax_rect.set_ylabel('Expenditure')
-		ax_rect.set_xlabel('Category of Expenditure')
-		fig.add_subplot(ax_rect)
+		keyCtr_int = 0
+		for key, val in labelsCat_dict.items():
+			# new category creates a new axis on the upper plot region
+			# if keyCtr_int < colCtr_int:
+			# 	axN = fig.add_subplot(inner_top[0, keyCtr_int]) # this is also one of the cleaner ways to create the axis
+			# else:
+			# 	axN = fig.add_subplot(inner_top[1, keyCtr_int - colCtr_int]) # this is also one of the cleaner ways to create the axis
+			axN = fig.add_subplot(inner_top[0, keyCtr_int]) # this is also one of the cleaner ways to create the axis
+			axN.set_prop_cycle(color=[CMAP(j) for j in range(1,10)])
+			graphing.pie_chart(labelsCat_dict.keys(), labelsCat_dict.values(), axN, category=key)
+			keyCtr_int += 1
+
+		savingsBarChart_ax = fig.add_subplot(inner_bottom[0])
+		graphing.bar_chart(list(labelsCat_dict.keys()), list(labelsCat_dict.values()), savingsBarChart_ax)
+		savingsBarChart_ax.set_ylabel('Expenditure')
+		savingsBarChart_ax.set_xlabel('Category of Expenditure')
+		plt.suptitle("Expenditure Statistics")
+		fig.add_subplot(savingsBarChart_ax)
+
+		########################################################################
+		# LEGACY
+		########################################################################
+
+		# key_counter = 0
+		# for key, term_list in self.expenditures.items():
+		# 	label_vals = {}
+		# 	for tx in term_list:
+		# 		new_value = tx.val
+		# 		new_label = tx.desc
+		# 		if new_label not in label_vals:
+		# 			label_vals[new_label] = new_value
+		# 		else:
+		# 			label_vals[new_label] += new_value
+
+		# 	# new category creates a new axis on the upper plot region
+		# 	if key_counter < col_count:
+		# 		axN = fig.add_subplot(inner_top[0, key_counter]) # this is also one of the cleaner ways to create the axis
+		# 	else:
+		# 		axN = fig.add_subplot(inner_top[1, key_counter - col_count]) # this is also one of the cleaner ways to create the axis
+
+		# 	axN.set_prop_cycle(color=[CMAP(i) for i in range(1,10)])
+		# 	graphing.pie_chart(label_vals.keys(), label_vals.values(), axN, category=key)
+		# 	totals.append(sum(label_vals.values()))
+		# 	key_counter -=- 1
+
+		# plt.suptitle("Expenditure Statistics")
+		# ax_rect = fig.add_subplot(inner_bottom[0])
+		# graphing.bar_chart(list(self.expenditures.keys()), totals, ax_rect)
+		
+		# ax_rect.set_ylabel('Expenditure')
+		# ax_rect.set_xlabel('Category of Expenditure')
+		# fig.add_subplot(ax_rect)
 
 		return images.img_buffer_to_svg(fig)

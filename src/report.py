@@ -58,7 +58,7 @@ class Report():
             See the GitHub https://github.com/albert118/Automated-Finances"""
 
         title_style = self.get_title_style()
-        body_style = self.get_body_style()
+        body_style  = self.get_body_style()
         
         self.flowables = [
             Paragraph(self.title, title_style),
