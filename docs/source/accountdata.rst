@@ -9,5 +9,5 @@ Account Data Documentation
 Transaction Data:
 ^^^^^^^^^^^^^^^^^
 
-.. autoclass:: tx_data
+.. autoclass:: TxData
 	:members:
