@@ -1,21 +1,15 @@
 import os
 import sys
 from environs import Env
-from matplotlib.backends.backend_pdf import PdfPages
-from datetime import datetime
 
 def safe_environ():
 	"""Check for the environment settings and config file. Attempt to gracefully
 	import the local.env file and deal with a FileNotFoundError or other
 	configuration error.
 
-	Returns
-	----------
-	env, Env builtin object
-		the environemtn class object is returned on successful detection of the
-		local.env file
-	default_warn, str
-		this is returned if the file cannot be found. Prints a message to stderr
+	**Returns:**
+		env(Env):			The environment class object is returned on successful detection of the local.env file
+		default_warn(str): 	This is returned if the file cannot be found. Prints a message to stderr
 	"""
 
 	default_warn = "[ENVIRON SETTINGS] Environment settings not found"

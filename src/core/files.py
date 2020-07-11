@@ -8,14 +8,17 @@ from matplotlib.backends.backend_pdf import PdfPages
 import os
 import sys
 from datetime import datetime
+from io import BytesIO
 
-def pdf_maker(account):
+# app modules
+from accountdata import AccountData
+
+def pdf_maker(account: AccountData):
 	"""Generate the output pdf for review.
 	
-	Parameters
-	----------
-	account : dataframe_worker.AccountData
-		AccountData object
+	**Args:**
+		account(AccountData):	AccountData object
+
 	"""
 
 	env = environConfig.safe_environ()
@@ -51,9 +54,3 @@ def pdf_maker(account):
 		d['ModDate'] = datetime.today()
 
 	os.system(save_dir)
-
-def img_buffer(figure):
-	with BytesIO as figure_buffer:
-		figure.save(figure_buffer, format='svg')
-		figure_buffer.seek(0)
-	return figure_buffer

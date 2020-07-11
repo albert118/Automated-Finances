@@ -11,23 +11,27 @@ import sys
 from datetime import datetime
 
 
-def stats(date_tx, curr_mean=None, curr_min=None, curr_max=None, curr_std=None, curr_tot=None):
-    """ 
-    IDEA: 
-        Calculate various statistics on the account data passed to the function.
-        * allow for continuous updates and integration of data.
-    Inputs: 
-        date_tx is a 2D array-list like object.
-        the rest are stats as labelled, these are running "total"-eqsue stats
-    Returns:
-        A nested dictionary - two stat dict's and one list of dicts: 
-        running stats dict, list of weekly stats dicts and a 4-weekly stats dict
+def stats(date_tx, curr_mean=None, curr_min=None, curr_max=None, curr_std=None, curr_tot=None) -> dict:
+    """ Calculate various statistics on the account data passed to the function.
+    Allow for continuous updates and integration of data.
+    
+    **Args:**
+        date_tx(list):  A 2D array-list like object.
+        curr_mean(float):   The current mean value.
+        curr_min(float):    The current min value.
+        curr_max(float):    The current max value.
+        curr_std(float):    The current standard deviation value.
+        curr_tot(float):    The current total value.
 
-    ------------------------------------------------------------------------
-    key-val args must be set if function is previously called, this
-    is required to update the running statistics on the accounts being 
-    watched as new transactions are added!
-    ------------------------------------------------------------------------
+    .. note:: These are running total stats.
+    
+    **Returns:**
+        return_dict(dict):  A nested dictionary - two stat dict's and one list of dicts: running stats dict, list of weekly stats dicts and a 4-weekly stats dict
+
+    .. note:: The key-val args must be set if function is previously called, this\
+    is required to update the running statistics on the accounts being \
+    watched as new transactions are added!\
+
     """
 
     # get the numpy arrays for comparison and iteration later
@@ -119,11 +123,12 @@ def stats(date_tx, curr_mean=None, curr_min=None, curr_max=None, curr_std=None, 
         '_tot': total,
     }
 
-    return {'running_stats': running_stats,'weekly_stats': weekly_stats,'four_week_stats': four_week_stats}
+    return_dict = {'running_stats': running_stats,'weekly_stats': weekly_stats,'four_week_stats': four_week_stats}
+    return return_dict
 
 def incremental_standard_dev(prev_std, new_vals, prev_mean, curr_mean):
 	""" Calculate the standard deviation based on the previous values and update the current standard deviation.
-	See here: http://datagenetics.com/blog/november22017/index.html """
+	See here: http://datagenetics.com/blog/november22017/index.html"""
 	
 	# use the variance to calculate incrementally, return the rooted value
 	variance = math.sqrt(prev_std)
@@ -134,7 +139,7 @@ def incremental_standard_dev(prev_std, new_vals, prev_mean, curr_mean):
 	return(math.sqrt(variance/len(new_vals)))
 
 def incremental_mean(prev_mean, new_vals):
-	""" Calculate the mean based upon the previous mean and update incrementally.
+	"""Calculate the mean based upon the previous mean and update incrementally.
 	See here: http://datagenetics.com/blog/november22017/index.html  """
 
 	# use the previous mean to incrementally update the new mean
