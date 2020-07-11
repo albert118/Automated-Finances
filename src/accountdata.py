@@ -1,7 +1,7 @@
 """
-.. module:: AccountData
-	:platform: Unix, Windows
-	:synopsis: Data layer management of the automated finance project. 
+.. module:: accountdata
+    :platform: Unix, Windows
+    :synopsis: Data layer management of the automated finance project. 
 .. moduleauthor:: Albert Ferguson <albertferguson118@gmail.com>
 
 .. note:: Returns of most functions are ByteIO streams.

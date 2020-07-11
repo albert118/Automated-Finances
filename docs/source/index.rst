@@ -20,7 +20,9 @@ See the source code and build your copy of the docs at `Automated_Finances`_.
    :maxdepth: 2
    :caption: Contents:
 
+   about
    accountdata
+   core
 
 
 

@@ -1,8 +1,13 @@
 Account Data Documentation
 **************************
 
-.. autoclass:: src.accountdata.AccountData
-	:members: __init__, setExpenditures,setSavings, setIncomes, getBankData, getPayslips, display_income_stats, display_savings_stats, display_expenditure_stats
+.. module:: accountdata
 
-.. autoclass:: src.accountdata.TxData
-	:members: __init__
+.. autoclass:: AccountData
+	:members:
+
+Transaction Data:
+^^^^^^^^^^^^^^^^^
+
+.. autoclass:: tx_data
+	:members:
