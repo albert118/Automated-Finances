@@ -41,7 +41,7 @@ def autoLabel(rects: container.BarContainer, ax: axes.Axes, fontSize: int):
     
     return
 
-def Graphing_PieChart(labels: list, values:list, ax: axes.Axes, category=None, LABELS=None, size=0.5, fontSize=9, rad=1):
+def Graphing_PieChart(labels: list, values:list, ax: axes.Axes, category=None, LABELS=None, size=0.5, fontSize=9, rad=1, loc=None):
     """Pie chart constructor with custom design.
     
     Pie chart constructor for given labels and sizes. This generates 'donut' pie charts with
@@ -69,21 +69,18 @@ def Graphing_PieChart(labels: list, values:list, ax: axes.Axes, category=None, L
     
     # Creating the legend labels, use the label keys initially passed to us
     # Use a bbox to set legend below pie chart for improved visibility if legend enabled
-    if LABELS:
-        ax.legend(wedges, labels, loc="lower center", bbox_to_anchor=(1,1))
+    
+    if labels is not None and loc is None:
+        ax.legend(wedges, labels, loc="upper right")
+    elif loc is not None:
+        ax.legend(wedges, labels, loc=str(loc))
     else:
-        ax.legend(wedges, labels, loc="lower center", bbox_to_anchor=(rad*0.2, -0.4))
+        ax.legend(wedges, labels, loc="lower right", bbox_to_anchor=(rad*0.2, -0.4))
     
     if category is not None:
         ax.set_title(category.capitalize().replace('_', ' '), weight="bold") # default title
     
     plt.setp(autotexts, size=fontSize, weight="bold")
-
-    print(values)
-    print(labels)
-    print(wedges)
-    plt.show()
-    input()
     return
 
 def Graphing_BarChart(labels: list, values: list, ax: axes.Axes, label="Default Bar Chart Label"):

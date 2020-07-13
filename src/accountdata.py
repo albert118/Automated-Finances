@@ -727,7 +727,7 @@ class AccountData():
 		# inner_**** are for use with plotting, outer is purely spacing
 		# n_charts_top = len(self.incomes)
 		fig          = plt.figure(figsize=figsize)
-		outer        = gridspec.GridSpec(2, 1, wspace=0.2, hspace=0.2)
+		outer        = gridspec.GridSpec(2, 1, figure=fig, height_ratios=[3,1])
 		inner_top    = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[0], wspace=0.1, hspace=0.1)
 		inner_bottom = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[1],wspace=0.1, hspace=0.1)
 
@@ -747,7 +747,7 @@ class AccountData():
 		
 		currentIncome_ax = fig.add_subplot(inner_top[0, 0]) # this is also one of the cleaner ways to create the axis
 		currentIncome_ax.set_prop_cycle(color=[CMAP(j) for j in range(1,10)])
-		graphing.Graphing_PieChart(labelsDes_list, value_list, currentIncome_ax, category=title_str, LABELS=False)
+		graphing.Graphing_PieChart(labelsDes_list, value_list, currentIncome_ax, category=title_str, LABELS=False, loc="lower left")
 		fig.add_subplot(currentIncome_ax)
 
 		# i += 1
