@@ -725,10 +725,10 @@ class AccountData():
 
 		# setup the grids for holding our plots, attach them to the same figure
 		# inner_**** are for use with plotting, outer is purely spacing
-		n_charts_top = len(self.incomes)
+		# n_charts_top = len(self.incomes)
 		fig          = plt.figure(figsize=figsize)
-		outer        = gridspec.GridSpec(2, 1, wspace=0.2, hspace=0.2)
-		inner_top    = gridspec.GridSpecFromSubplotSpec(1, n_charts_top, subplot_spec=outer[0], wspace=0.1, hspace=0.1)
+		outer        = gridspec.GridSpec(2, 1, figure=fig, height_ratios=[3,1])
+		inner_top    = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[0], wspace=0.1, hspace=0.1)
 		inner_bottom = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[1],wspace=0.1, hspace=0.1)
 
 		# i = 0
@@ -745,10 +745,11 @@ class AccountData():
 		else:
 			title_str = str(labelsCat_list[0][:catIdx_int])
 		
-		currentIncome_ax = plt.Subplot(fig, inner_top[0])
+		currentIncome_ax = fig.add_subplot(inner_top[0, 0]) # this is also one of the cleaner ways to create the axis
 		currentIncome_ax.set_prop_cycle(color=[CMAP(j) for j in range(1,10)])
-		graphing.pie_chart(labelsDes_list, value_list, currentIncome_ax, category=title_str, LABELS=False)
+		graphing.Graphing_PieChart(labelsDes_list, value_list, currentIncome_ax, category=title_str, LABELS=False, loc="lower left")
 		fig.add_subplot(currentIncome_ax)
+
 		# i += 1
 
 		# if i == n_charts_top:
@@ -789,7 +790,7 @@ class AccountData():
 		# # compelete by generating charts and setting CMAP
 		# for i, ax in enumerate(list_ax):
 		# 	ax.set_prop_cycle(color=[CMAP(j) for j in range(1,10)])
-		# 	graphing.pie_chart(label_val_dicts[i].keys(), label_val_dicts[i].values(),
+		# 	graphing.Graphing_PieChart(label_val_dicts[i].keys(), label_val_dicts[i].values(),
 		# 	ax, category=list_titles[i], LABELS=False
 		# 	)
 		# 	fig.add_subplot(ax)
@@ -800,7 +801,7 @@ class AccountData():
 		# ax_bar_income_raw = plt.Subplot(fig, inner_bottom[0])
 		# bar_labels = ["Week {}".format(i) for i in range(len(income_raw))]
 		# # reverse to give time proceeding to the right, more intuitive to user
-		# graphing.bar_chart(bar_labels, income_raw, ax_bar_income_raw)
+		# graphing.Graphing_BarChart(bar_labels, income_raw, ax_bar_income_raw)
 		# ax_bar_income_raw.set_ylabel('Income')
 		# ax_bar_income_raw.set_xlabel('Week of Income')
 		# plt.suptitle("Income Statistics")
@@ -851,14 +852,14 @@ class AccountData():
 			title_str = str(labelsCat_list[0][:catIdx_int])
 		
 		barChartSavings_ax	= plt.Subplot(fig, disp_bottom[0])
-		graphing.bar_chart(labelsDes_list.tolist(), value_list.tolist(), barChartSavings_ax)
+		graphing.Graphing_BarChart(labelsDes_list.tolist(), value_list.tolist(), barChartSavings_ax)
 		barChartSavings_ax.set_ylabel('Savings')
 		barChartSavings_ax.set_xlabel('Date and Description')
 		fig.add_subplot(barChartSavings_ax)
 
 		totalSavings_int = sum(value_list)
 		scatterChartSavings_ax = plt.Subplot(fig, disp_top[0])
-		graphing.scatter_plotter(dates_list, value_list, scatterChartSavings_ax, area=totalSavings_int)
+		graphing.Graphing_ScatterPlot(dates_list, value_list, scatterChartSavings_ax, area=totalSavings_int)
 		scatterChartSavings_ax.set_ylabel("Savings Data")
 		scatterChartSavings_ax.set_xlabel("Savings Date")
 		fig.add_subplot(scatterChartSavings_ax)
@@ -898,14 +899,14 @@ class AccountData():
 		# TODO : Add support for graphing all 3 sub cats for accounts (combined or seperate whatever...)
 		# bar chart subplot on disp_bottom
 		# ax_savings_bar	= plt.Subplot(fig, disp_bottom[0])
-		# graphing.bar_chart(savings_lbls[1], savings_data[1], ax_savings_bar)
+		# graphing.Graphing_BarChart(savings_lbls[1], savings_data[1], ax_savings_bar)
 		# ax_savings_bar.set_ylabel('Savings')
 		# ax_savings_bar.set_xlabel('Date and Description')
 		# fig.add_subplot(ax_savings_bar)
 
 		# now create the trendline and place it in disp_top
 		# ax_savings_trend = plt.Subplot(fig, disp_top[0])
-		# graphing.scatter_plotter(savings_dates[1], savings_data[1], ax_savings_trend, area=savings_perc)
+		# graphing.Graphing_ScatterPlot(savings_dates[1], savings_data[1], ax_savings_trend, area=savings_perc)
 		# ax_savings_trend.set_ylabel("Savings Data")
 		# ax_savings_trend.set_xlabel("Savings Date")
 		# fig.add_subplot(ax_savings_trend)
@@ -925,10 +926,10 @@ class AccountData():
 			
 		# setup the grids for holding our plots, attach them to the same figure
 		# inner_**** are for use with plotting, outer is purely spacing
-		colCtr_int = math.ceil(len(self.expenditures.keys()))
+		# colCtr_int   = math.ceil(len(self.expenditures.keys()))
 		fig          = plt.figure(figsize=figsize)
-		outer = gridspec.GridSpec(2, 1, figure=fig, height_ratios=[3,1])
-		inner_top    = gridspec.GridSpecFromSubplotSpec(1, colCtr_int, subplot_spec=outer[0], wspace=0.1, hspace=0.1)
+		outer        = gridspec.GridSpec(2, 1, figure=fig, height_ratios=[3,1])
+		inner_top    = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[0], wspace=0.1, hspace=0.1)
 		inner_bottom = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[1],wspace=0.1, hspace=0.1)
 
 		labelsCat_dict = {'unknown expenditures': 0} # tracks total expenditures per category
@@ -947,25 +948,18 @@ class AccountData():
 					labelsCat_dict[cat_str] = value_list[i]
 				else:
 					labelsCat_dict['unknown expenditures'] += value_list[i]
-		
-		keyCtr_int = 0
-		for key, val in labelsCat_dict.items():
-			# new category creates a new axis on the upper plot region
-			# if keyCtr_int < colCtr_int:
-			# 	axN = fig.add_subplot(inner_top[0, keyCtr_int]) # this is also one of the cleaner ways to create the axis
-			# else:
-			# 	axN = fig.add_subplot(inner_top[1, keyCtr_int - colCtr_int]) # this is also one of the cleaner ways to create the axis
-			axN = fig.add_subplot(inner_top[0, keyCtr_int]) # this is also one of the cleaner ways to create the axis
-			axN.set_prop_cycle(color=[CMAP(j) for j in range(1,10)])
-			graphing.pie_chart(labelsCat_dict.keys(), labelsCat_dict.values(), axN, category=key)
-			keyCtr_int += 1
 
-		savingsBarChart_ax = fig.add_subplot(inner_bottom[0])
-		graphing.bar_chart(list(labelsCat_dict.keys()), list(labelsCat_dict.values()), savingsBarChart_ax)
-		savingsBarChart_ax.set_ylabel('Expenditure')
-		savingsBarChart_ax.set_xlabel('Category of Expenditure')
+		expendituresPieChart_ax = fig.add_subplot(inner_top[0, 0]) # this is also one of the cleaner ways to create the axis
+		expendituresPieChart_ax.set_prop_cycle(color=[CMAP(j) for j in range(1,10)])
+		graphing.Graphing_PieChart(labelsCat_dict.keys(), labelsCat_dict.values(), expendituresPieChart_ax, category='Expenditure Percentages')
+		fig.add_subplot(expendituresPieChart_ax)
+
+		expendituresBarChart_ax = fig.add_subplot(inner_bottom[0])
+		graphing.Graphing_BarChart(list(labelsCat_dict.keys()), list(labelsCat_dict.values()), expendituresBarChart_ax)
+		expendituresBarChart_ax.set_ylabel('Expenditure')
+		expendituresBarChart_ax.set_xlabel('Category of Expenditure')
 		plt.suptitle("Expenditure Statistics")
-		fig.add_subplot(savingsBarChart_ax)
+		fig.add_subplot(expendituresBarChart_ax)
 
 		########################################################################
 		# LEGACY
@@ -989,13 +983,13 @@ class AccountData():
 		# 		axN = fig.add_subplot(inner_top[1, key_counter - col_count]) # this is also one of the cleaner ways to create the axis
 
 		# 	axN.set_prop_cycle(color=[CMAP(i) for i in range(1,10)])
-		# 	graphing.pie_chart(label_vals.keys(), label_vals.values(), axN, category=key)
+		# 	graphing.Graphing_PieChart(label_vals.keys(), label_vals.values(), axN, category=key)
 		# 	totals.append(sum(label_vals.values()))
 		# 	key_counter -=- 1
 
 		# plt.suptitle("Expenditure Statistics")
 		# ax_rect = fig.add_subplot(inner_bottom[0])
-		# graphing.bar_chart(list(self.expenditures.keys()), totals, ax_rect)
+		# graphing.Graphing_BarChart(list(self.expenditures.keys()), totals, ax_rect)
 		
 		# ax_rect.set_ylabel('Expenditure')
 		# ax_rect.set_xlabel('Category of Expenditure')
