@@ -70,9 +70,9 @@ def Graphing_PieChart(labels: list, values:list, ax: axes.Axes, category=None, L
     # Creating the legend labels, use the label keys initially passed to us
     # Use a bbox to set legend below pie chart for improved visibility if legend enabled
     if LABELS:
-        ax.legend(wedges, loc="lower center", labels=labels, bbox_to_anchor=(1,1))
+        ax.legend(wedges, labels, loc="lower center", bbox_to_anchor=(1,1))
     else:
-        ax.legend(wedges, loc="lower center", labels=labels, bbox_to_anchor=(rad*0.2, -0.4))
+        ax.legend(wedges, labels, loc="lower center", bbox_to_anchor=(rad*0.2, -0.4))
     
     if category is not None:
         ax.set_title(category.capitalize().replace('_', ' '), weight="bold") # default title
@@ -81,7 +81,7 @@ def Graphing_PieChart(labels: list, values:list, ax: axes.Axes, category=None, L
 
     return
 
-def Graphing_BarChart(labels: list, values: list, ax: axes.Axes, label: str):
+def Graphing_BarChart(labels: list, values: list, ax: axes.Axes, label="Default Bar Chart Label"):
     """Bar chart constructor for given labels and sizes.
 
     **Args:**
@@ -92,8 +92,8 @@ def Graphing_BarChart(labels: list, values: list, ax: axes.Axes, label: str):
 
     """
 
-    width_int         = 1
-    fontSize      = 12
+    width             = 1
+    fontSize          = 12
     scaleFactor_float = 1.6
     n_labels          = len(labels)
     x                 = np.arange(n_labels)

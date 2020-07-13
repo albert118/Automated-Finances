@@ -38,8 +38,8 @@ def img_buffer(figure) -> BytesIO:
 
 	"""
 
-	with BytesIO as figure_buffer:
-		figure.save(figure_buffer, format='svg')
+	with BytesIO() as figure_buffer:
+		figure.savefig(figure_buffer, format='svg')
 		figure_buffer.seek(0)
 	return figure_buffer
 
