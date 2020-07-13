@@ -6,8 +6,9 @@
 """
 
 # core
-from core import environConfig, graphing, images
+from core import environConfig, graphing, images, timeManips
 from paychecks import Payslips_getPayslips as getPayslips
+
 # third party libs
 import pandas as pd
 from pandas import Timestamp
@@ -16,6 +17,7 @@ from tabula import read_pdf
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.patches as mpatches
+from matplotlib.legend import Legend
 
 # python core
 from datetime import datetime
@@ -367,8 +369,6 @@ class AccountData():
                 filesource_path = _data.loc[i, "Filesource"]
             except KeyError:
                 filesource_path = ' '
-
-            print(_data.loc[i])
         
             # tx for savings should includes the category (account id typically) ref
             for cat in self.SAVINGS_IDS:
@@ -468,17 +468,18 @@ class AccountData():
         # inner_**** are for use with plotting, outer is purely spacing
         # n_charts_top = len(self.incomes)
         fig          = plt.figure(figsize=figsize)
-        outer        = gridspec.GridSpec(2, 1, figure=fig, height_ratios=[2,1])
+        outer        = gridspec.GridSpec(2, 1, figure=fig)
         inner_top    = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[0], wspace=0.1, hspace=0.1)
         inner_bottom = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[1], wspace=0.1, hspace=0.1)
         graphRad_int = 1.3
         charLim_int  = 15
 
-        labelsDes_list 	= self.incomes.Description.values
+        labelsDes_list 	= self.incomes.Description.values.tolist()
         labelsDes_list  = [label[:charLim_int] for label in labelsDes_list]
-        labelsCat_list 	= self.incomes.CatAndSub.values
-
-        value_list      = self.incomes.Value.values
+        labelsCat_list 	= self.incomes.CatAndSub.values.tolist()
+        # dates_list		= self.incomes.Date.values.tolist()
+        value_list      = self.incomes.Value.values.tolist()
+        labelsCat_dict  = {'unknown expenditures': 0} # tracks total expenditures per category
 
         # Retrieve a title name for the graph to be made.
         catIdx_int    = labelsCat_list[0].find(":")
@@ -491,14 +492,32 @@ class AccountData():
         # General Income data
         #####################
 
-        currentIncome_ax = fig.add_subplot(inner_top[0,0]) # this is also one of the cleaner ways to create the axis
-        currentIncome_ax.set_prop_cycle(color=[CMAP(j) for j in range(1,10)])
-        graphing.Graphing_PieChart(None, value_list, currentIncome_ax, category=title_str)
-        currentIncome_ax.legend(labelsDes_list, loc="lower left", bbox_transform=fig.transFigure,
-                                ncol=3, borderaxespad=0, mode="expand"
-                            )
+        for i in range(len(self.incomes)):
+            catIdx_int = labelsCat_list[i].find(":")
+            if catIdx_int == -1:
+                labelsCat_dict['unknown expenditures'] += value_list[i]
+            else:
+                cat_str = str(labelsCat_list[i][catIdx_int+1:])
+                if cat_str not in labelsCat_dict:
+                    labelsCat_dict[cat_str] = value_list[i]
+                if cat_str in labelsCat_dict:
+                    labelsCat_dict[cat_str] += value_list[i]
+                else:
+                    labelsCat_dict['unknown expenditures'] += value_list[i]
+        if labelsCat_dict['unknown expenditures'] == 0:
+            del labelsCat_dict['unknown expenditures']
 
+        currentIncome_ax = fig.add_subplot(inner_top[0, 0]) # this is also one of the cleaner ways to create the axis
+        currentIncome_ax.set_prop_cycle(color=[CMAP(j) for j in range(1,10)])
+        graphing.Graphing_PieChart(None, list(labelsCat_dict.values()), currentIncome_ax, category=title_str)
+        currentIncome_ax.legend(list(labelsCat_dict.keys()), loc="lower right", ncol=1, bbox_to_anchor=(1.04,0.5), bbox_transform=fig.transFigure)
         fig.add_subplot(currentIncome_ax)
+
+        # legend_ax = fig.add_subplot(inner_top[0, 0])
+        # leg = Legend(legend_ax, w, list(labelsCat_dict.keys()), ncol=1)
+        # legend_ax.axis("off")
+        # legend_ax.add_artist(leg)
+        # fig.add_subplot(legend_ax)
 
         ##############
         # JB Data
@@ -523,6 +542,7 @@ class AccountData():
         jbAggregate_ax.set_prop_cycle(color=[CMAP(j) for j in range(1,10)])
         graphing.Graphing_PieChart(None,incomeTaxData_list, jbAggregate_ax, rad=graphRad_int)
         graphing.Graphing_PieChart(None,hourWithCommsData_list, jbAggregate_ax, category="Latest Week JB Hi-Fi Overview", rad=(1-graphRad_int))
+        # https://stackoverflow.com/questions/4700614/how-to-put-the-legend-out-of-the-plot, BEST EXPLANATION
         jbAggregate_ax.legend(hourWithCommsLabels_list, loc="lower right", bbox_to_anchor=(1,0), bbox_transform=fig.transFigure, ncol=2)
         fig.add_subplot(jbAggregate_ax)
 
@@ -539,8 +559,6 @@ class AccountData():
         **Returns:**
             images.image_buffer_to_svg(PIL.image): An SVG PIL image.
         """
-
-        
             
         fig = plt.figure(figsize=figsize)
         # Display savings across accounts, bar per acc., i.e. bar figure
@@ -571,22 +589,25 @@ class AccountData():
         for x in value_list:
             total += x
             diff_list.append(total)
-        print(pd.DataFrame(diff_list))
-        print(len(diff_list))
+
+        culmChange_ax = plt.Subplot(fig, disp_top[0])
+        culmChange_ax.plot(dates_list, diff_list)
+        
+        # monthAgg_dataframe = timeManips.timeManips_groupbyTimeFreq(self.savings, time="M")
+        # graphing.Graphing_BarChart(list(monthAgg_dataframe.Date.values), list(monthAgg_dataframe.Value.values), culmChange_ax, "Culminative Savings")
+        culmChange_ax.set_ylabel("Savings $")
+        fig.add_subplot(culmChange_ax)
+        plt.setp(culmChange_ax.xaxis.get_majorticklabels(), rotation=45)
+        plt.xticks(fontsize=8)
 
         barChartSavings_ax	= plt.Subplot(fig, disp_bottom[0])
         graphing.Graphing_BarChart(dates_list, value_list, barChartSavings_ax)
         barChartSavings_ax.set_ylabel('Savings $')
         barChartSavings_ax.set_xlabel('Date and Description (dd/mm/yyy)')
         fig.add_subplot(barChartSavings_ax)
-
-        culmChange_ax = plt.Subplot(fig, disp_top[0])
-        culmChange_ax.plot(dates_list, diff_list)
-        graphing.Graphing_BarChart(dates_list, diff_list ,culmChange_ax, "Culminative Savings")
-        culmChange_ax.set_ylabel("Savings $")
-        fig.add_subplot(culmChange_ax)
         
         culmChange_ax.set_title("Savings Overview")
+        plt.xticks(fontsize=8)
         return images.img_buffer_to_svg(fig)
 
     def display_expenditure_stats(self, figsize=(10,10)):
@@ -634,25 +655,23 @@ class AccountData():
         # barchart reverses the data to appear in timeorder. Repeat for pie chart to get the same order of colours
         reversedtoMatchValues_list = list(labelsCat_dict.values()); reversedtoMatchValues_list.reverse()
         reversedtoMatchLabels_list = list(labelsCat_dict.keys()); reversedtoMatchLabels_list.reverse()
-        graphing.Graphing_PieChart(reversedtoMatchLabels_list, reversedtoMatchValues_list, expendituresPieChart_ax, category='Expenditure Percentages')
+        graphing.Graphing_PieChart(reversedtoMatchLabels_list, reversedtoMatchValues_list, expendituresPieChart_ax, category='Expenditure By Category (%)')
         expendituresPieChart_ax.legend().remove()
         fig.add_subplot(expendituresPieChart_ax)
 
-        expendituresBarChart_ax = fig.add_subplot(inner_bottom[0])
-        graphing.Graphing_BarChart(list(labelsCat_dict.keys()), list(labelsCat_dict.values()), expendituresBarChart_ax, colours=colours)
-        expendituresBarChart_ax.set_ylabel('Expenditure')
-        expendituresBarChart_ax.set_xlabel('Category of Expenditure')
-        plt.suptitle("Expenditure Statistics")
-        # https://stackoverflow.com/questions/4700614/how-to-put-the-legend-out-of-the-plot, BEST EXPLANATION
-        # expendituresBarChart_ax.legend(labelsCat_dict.keys(), loc="lower left", bbox_transform=fig.transFigure,
-        #                         ncol=2, borderaxespad=0, mode="expand"
-        #                     )
-        plt.xticks(rotation=20)
-        fig.add_subplot(expendituresBarChart_ax)
-
         expendituresTimeChart_ax = fig.add_subplot(inner_middle[0])
         expendituresTimeChart_ax.set_prop_cycle(color=[CMAP(j) for j in range(1,10)])
-        graphing.Graphing_TimePlot(value_list, dates_list, expendituresTimeChart_ax, "Expenditure History")
+        expendituresTimeChart_ax.set_ylabel('Expenditure Outgoing ($)')
+        monthAgg_dataframe = timeManips.timeManips_groupbyTimeFreq(self.expenditures, time="M")
+        graphing.Graphing_TimePlot(list(monthAgg_dataframe.Value.values), list(monthAgg_dataframe.Date.values), expendituresTimeChart_ax, "Expenditure History (yyyy-mm)")
         fig.add_subplot(expendituresTimeChart_ax)
+
+        expendituresBarChart_ax = fig.add_subplot(inner_bottom[0])
+        graphing.Graphing_BarChart(list(labelsCat_dict.keys()), list(labelsCat_dict.values()), expendituresBarChart_ax, colours=colours)
+        expendituresBarChart_ax.set_ylabel('Expenditure Outgoing ($)')
+        expendituresBarChart_ax.set_xlabel('Category of Expenditure')
+        plt.suptitle("Expenditure Statistics")
+        plt.xticks(rotation=20)
+        fig.add_subplot(expendituresBarChart_ax)
 
         return images.img_buffer_to_svg(fig)

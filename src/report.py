@@ -94,10 +94,10 @@ class Report():
             return (val[:charLimitLen] + "...")
 
         data["Description"] = data["Description"].apply(_strip)
-        t = Table(data.values.tolist())
+        t = Table(data.values.tolist(), spaceBefore=10)
         t.setStyle(TableStyle([("BOX", (0, 0), (-1, -1), 0.25, colors.black),
                        ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.black)]))
-        header = Paragraph("<bold><font size=18>{}</font></bold>".format(title), style)
+        header = Paragraph("<b><font size=18>{}:</font></b>".format(title), style)
 
         for each in range(len(data)):
             if each % 2 == 0:
@@ -106,7 +106,7 @@ class Report():
                 bg_color = colors.lightgrey
 
             t.setStyle(TableStyle([('BACKGROUND', (0, each), (-1, each), bg_color)]))        
-        aW = 540
+        aW = 500
         aH = 720
 
         w, h = header.wrap(aW, aH)

@@ -39,16 +39,16 @@ def timeManips_groupbyTimeFreq(data: pd.DataFrame, time='D'):
     """
     
     try:
-        data.Date = pd.to_datetime(data)
-        data      = data.groupby(pd.PeriodIndex(data.Date, freq=time), axis = 0)
-        data      = pd.Series(data.index) 
-        data.sort_values(ascending=True, inplace=True)
-        data.Date = pd.to_datetime(data)
+        data.Date = pd.to_datetime(data.Date, dayfirst=True, infer_datetime_format=True, errors="ignore")
+        data      = data.groupby(pd.PeriodIndex(data.Date, freq=time), axis = 0).sum()
+        data.Date = pd.Series(data.index) 
+        data.sort_values(by=["Date"], ascending=True, inplace=True, kind="mergesort")
+        data.Date = data.Date.dt.to_timestamp() # .to_timestamp must be accessed via .dt class?
     except AttributeError:
-        data = pd.to_datetime(data)
-        data = pd.DataFrame(data).groupby(pd.PeriodIndex(data, freq=time), axis = 0)
+        data = pd.to_datetime(data, dayfirst=True, infer_datetime_format=True, errors="ignore")
+        data = pd.DataFrame(data).groupby(pd.PeriodIndex(data, freq=time), axis = 0).sum()
         data = pd.Series(data.index)
-        data.sort_values(ascending=True, inplace=True)
+        data.sort_values(ascending=True, inplace=True,  kind="mergesort")
         data = data.dt.to_timestamp() # .to_timestamp must be accessed via .dt class?
         data = data.tolist()
     finally:

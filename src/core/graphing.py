@@ -67,18 +67,16 @@ def Graphing_PieChart(labels: list, values:list, ax: axes.Axes, category=None, s
             shadow=False, radius=rad, pctdistance=(1.25),
             wedgeprops=dict(width=size, edgecolor='w')
         )
-    
+
     # Creating the legend labels, use the label keys initially passed to us
     # Use a bbox to set legend below pie chart for improved visibility if legend enabled
-
     if labels:
-        ax.legend(wedges, labels, loc="lower right", bbox_to_anchor=(rad*0.2, -0.4))
-
+        
+        plt.setp(autotexts, size=fontSize, weight="bold")
         if loc:
             ax.legend(wedges, labels, loc=str(loc), bbox_to_anchor=(1,0))
         else:
-            ax.legend(wedges, labels, loc="upper right")
-
+            ax.legend(wedges, labels, loc="lower right", bbox_to_anchor=(rad*0.2, -0.4))
     
     if category is not None:
         if loc:
@@ -86,7 +84,6 @@ def Graphing_PieChart(labels: list, values:list, ax: axes.Axes, category=None, s
         else:
             ax.set_title(category.capitalize().replace('_', ' '), weight="bold")
     
-    plt.setp(autotexts, size=fontSize, weight="bold")
     return
 
 def Graphing_BarChart(labels: list, values: list, ax: axes.Axes, label="Default Bar Chart Label", colours=[CMAP(j) for j in range(1,10)], Labels=True):
@@ -109,7 +106,11 @@ def Graphing_BarChart(labels: list, values: list, ax: axes.Axes, label="Default 
     rects = ax.bar(scaled_x, values, width, color=colours, label=label)
 
     if Labels:
-        ax.set_xticklabels([label.capitalize().replace('_', ' ') for label in labels])
+        try:
+            ax.set_xticklabels([label.capitalize().replace('_', ' ') for label in labels])
+        except AttributeError: # if a numpy.datetime64 object is passed, this is thrown.
+            ax.set_xticklabels(labels)
+            
         ax.set_xticks(scaled_x)
         plt.setp(ax.xaxis.get_majorticklabels(), rotation=45)
     return
@@ -289,3 +290,12 @@ def Graphing_TimePlot(data: list, dates: list, ax: axes.Axes, label: str, rotati
     for spine in ["left", "top", "right"]:
         ax.spines[spine].set_visible(False)
     return
+
+def Graphing_SeparateLegend(ax: axes.Axes, ncol=4) -> axes.Axes:
+    fig_leg = plt.figure()
+    ax_leg  = fig_leg.add_subplot()
+    ax_leg.legend(*ax.get_legend_handles_labels(), loc="center", ncol=ncol)
+    ax_leg.axis("off")
+    ax.legend().remove()
+
+    return ax_leg
