@@ -6,6 +6,7 @@
 """
 
 # core
+from core.timeManips import timeManips_timestampConvert
 
 # third party libs
 import numpy as np
@@ -41,7 +42,7 @@ def autoLabel(rects: container.BarContainer, ax: axes.Axes, fontSize: int):
     
     return
 
-def Graphing_PieChart(labels: list, values:list, ax: axes.Axes, category=None, LABELS=None, size=0.5, fontSize=9, rad=1, loc=None):
+def Graphing_PieChart(labels: list, values:list, ax: axes.Axes, category=None, size=0.5, fontSize=9, rad=1, loc=None, LABELS=None):
     """Pie chart constructor with custom design.
     
     Pie chart constructor for given labels and sizes. This generates 'donut' pie charts with
@@ -52,10 +53,10 @@ def Graphing_PieChart(labels: list, values:list, ax: axes.Axes, category=None, L
         values(list):   elems(float):  A list of float values to create chart with
         ax(axes.Axes):  The axis object to bind to
         category(str):  The category being plotted, if None, no title is set
-        LABELS(bool):   LABELS True sets default labels (top right), False or None sets lower center
         size(float):    A vlaue that controls the size of the wedges generated for the 'donut' pies
         fontSize(int):  The font size of labelling.
         rad(float):     The radius of the pie chart. The inner radius (wedge rad) is scaled from this
+        LABELS(bool):   Legacy API call to control if a legend is rendered.
 
     """
 
@@ -63,27 +64,29 @@ def Graphing_PieChart(labels: list, values:list, ax: axes.Axes, category=None, L
     wedges, texts, autotexts = ax.pie(
             [math.fabs(x) for x in values], 
             labels=None, autopct="%1.1lf%%", 
-            shadow=False, radius=rad, pctdistance=(rad+rad*0.1),
+            shadow=False, radius=rad, pctdistance=(1.25),
             wedgeprops=dict(width=size, edgecolor='w')
         )
-    
+
     # Creating the legend labels, use the label keys initially passed to us
     # Use a bbox to set legend below pie chart for improved visibility if legend enabled
-    
-    if labels is not None and loc is None:
-        ax.legend(wedges, labels, loc="upper right")
-    elif loc is not None:
-        ax.legend(wedges, labels, loc=str(loc))
-    else:
-        ax.legend(wedges, labels, loc="lower right", bbox_to_anchor=(rad*0.2, -0.4))
+    if labels:
+        
+        plt.setp(autotexts, size=fontSize, weight="bold")
+        if loc:
+            ax.legend(wedges, labels, loc=str(loc), bbox_to_anchor=(1,0))
+        else:
+            ax.legend(wedges, labels, loc="lower right", bbox_to_anchor=(rad*0.2, -0.4))
     
     if category is not None:
-        ax.set_title(category.capitalize().replace('_', ' '), weight="bold") # default title
+        if loc:
+            ax.set_title(category.capitalize().replace('_', ' '), weight="bold", loc=loc)
+        else:
+            ax.set_title(category.capitalize().replace('_', ' '), weight="bold")
     
-    plt.setp(autotexts, size=fontSize, weight="bold")
     return
 
-def Graphing_BarChart(labels: list, values: list, ax: axes.Axes, label="Default Bar Chart Label"):
+def Graphing_BarChart(labels: list, values: list, ax: axes.Axes, label="Default Bar Chart Label", colours=[CMAP(j) for j in range(1,10)], Labels=True):
     """Bar chart constructor for given labels and sizes.
 
     **Args:**
@@ -100,15 +103,16 @@ def Graphing_BarChart(labels: list, values: list, ax: axes.Axes, label="Default 
     n_labels          = len(labels)
     x                 = np.arange(n_labels)
     scaled_x          = [scaleFactor_float*i for i in x] # calculate length of x-axis then scale to match pie charts above
+    rects = ax.bar(scaled_x, values, width, color=colours, label=label)
 
-    labels.reverse()
-    values.reverse()
-
-    rects = ax.bar(scaled_x, values, width, color=[CMAP(i) for i in range(0,n_labels)], label=label)
-    ax.set_xticks(scaled_x)
-    ax.set_xticklabels([label.capitalize().replace('_', ' ') for label in labels])
-    autoLabel(rects, ax,fontSize)
-
+    if Labels:
+        try:
+            ax.set_xticklabels([label.capitalize().replace('_', ' ') for label in labels])
+        except AttributeError: # if a numpy.datetime64 object is passed, this is thrown.
+            ax.set_xticklabels(labels)
+            
+        ax.set_xticks(scaled_x)
+        plt.setp(ax.xaxis.get_majorticklabels(), rotation=45)
     return
 
 def Graphing_ScatterPlot(X: list, Y: list, ax: axes.Axes, area=10, ALPHA=0.9):
@@ -210,17 +214,16 @@ def Graphing_HistPlot(x: np.ndarray, bins: int, label:str, ax: axes.Axes) -> lis
         raise ValueError
 
     try:
-        returnVals_list = list(ax.hist(x, bins=bins, density=True, histtype="step", cumulative=True, label=label, align="mid"))
+        returnVals_list = list(ax.hist(x, bins=bins, density=False, histtype="step", cumulative=True, label=label, align="mid"))
     except ValueError:
         pass
     return returnVals_list
 
-def Graphing_CulmDataPlot(data: pd.DataFrame, bins: int, ax: axes.Axes, label: str):
+def Graphing_CulmDataPlot(data: pd.DataFrame, ax: axes.Axes, label: str):
     """Plot the values, culminatively, against to time.	
     
     **Args:**
         data(pd.DataFrame): The dataframe with the data to index by time.
-        bins(int):          A value for the number of bins to apply.
         ax(axes.Axes):      A premade axis to attach the graph to.
         label(str):         A label for the graph title.
 
@@ -234,55 +237,65 @@ def Graphing_CulmDataPlot(data: pd.DataFrame, bins: int, ax: axes.Axes, label: s
     
     if ax is None:
         raise ValueError
-    
-    Graphing_HistPlot(data.Value, bins, label, ax)
 
-    # xticks logic sets a tick for every month, as data is in time order this places the hist in time order
+    # ax.candlestick2_ochl(list(data.Value > 0), list(data.Value < 0))
+
     ax.legend(loc="right")
     ax.set_title(label)
-    ax.set_xticks(
-                ticks=np.arange(0, ax.get_xlim()[1], ax.get_xlim()[1]/bins),
-                labels=data.dateRep,
-                rotation=30
-            )
-
+    # ax.set_xticks(np.arange(0, ax.get_xlim()[1], ax.get_xlim()[1]/bins))
+    plt.setp(ax.xaxis.get_majorticklabels(), rotation=45)
+    ax.set_xlabel(data.Date.tolist())
     return
 
-def Graphing_TimeDeltaPlot(data: pd.DataFrame, ax: axes.Axes, label: str, rotation=20):
+def Graphing_TimePlot(data: list, dates: list, ax: axes.Axes, label: str, rotation=20, diff_mode=False, annotations=False):
     """Plot the change in cases and deaths per country as a timeline.
         
     **Args:**
-        data(pd.dataframe): The data to index by time. This should include Value and Date as attributes.
+        data(list):         The data to index by time.
+        dates(list):        A list of dates to graph against data.
         ax(axes.Axes):      A premade axis to attach the graph to.
         label(str):         The graph title.
         rotation(int):      X-axis label rotation. Default is 20.
+        diff_mode(bool):    Calculates the diff on every date value passed. Default is False (off).
+        annotations(bool):  Annotates the data points to each line plotted. Default is False (off).
 
     """
     
-    dates_axis = data.Date
-    yData_axis = data.Value.diff()
+    if diff_mode:
+        yData_series = timeManips_timestampConvert(dates).diff().iloc[:,0].tolist()
+    else:
+        yData_series = timeManips_timestampConvert(dates)
 
-    markerline, stemline, baseline = ax.stem(dates_axis, yData_axis, linefmt="C3-", basefmt="k-", use_line_collection=True)
+    markerline, stemline, baseline = ax.stem(yData_series, data, linefmt="C3-", basefmt="k-", use_line_collection=True)
 
     plt.setp(markerline, mec="k", mfc="w", zorder=3) # recolour markers and remove line through them
-    markerline.set_ydata(np.zeros(len(data.dateRep)))
+    markerline.set_ydata(np.zeros(len(yData_series)))
 
-    # Annotate lines
-    vert = np.array(['top', 'bottom'])[(yData_axis > 0).astype(int)]
-    for d, l, r, va in zip(dates_axis, list(yData_axis), yData_axis, vert):
-        if not (l > 0 or l < 0):
-            continue
-        text = ax.annotate(r, xy=(d, l), xytext=(-3, np.sign(l)*3),
-                textcoords="offset points", va=va, ha="right")
-        text.set_rotation(-45)
+    if annotations:
+        # Annotate lines
+        vert = np.array(['top', 'bottom'])[(data > 0).astype(int)]
+        for d, l, r, va in zip(yData_series, data, data, vert):
+            if not (l > 0 or l < 0):
+                continue
+            text = ax.annotate(r, xy=(d, l), xytext=(-3, np.sign(l)*3),
+                    textcoords="offset points", va=va, ha="right")
+            text.set_rotation(-45)
     
     # Formatting
     ax.set_title(label)
-    ax.set_xticks(roation=rotation)
-    ax.get_yaxis().set_visible(False)
+    plt.xticks(rotation=rotation)
+    ax.get_yaxis().set_visible(True)
     
     # Make spines invisible.
     for spine in ["left", "top", "right"]:
         ax.spines[spine].set_visible(False)
-
     return
+
+def Graphing_SeparateLegend(ax: axes.Axes, ncol=4) -> axes.Axes:
+    fig_leg = plt.figure()
+    ax_leg  = fig_leg.add_subplot()
+    ax_leg.legend(*ax.get_legend_handles_labels(), loc="center", ncol=ncol)
+    ax_leg.axis("off")
+    ax.legend().remove()
+
+    return ax_leg
