@@ -4,21 +4,25 @@ class in page generation features. Provides access to all the plot management,
 text boxes, overlays and 'canvasing' tools for generating reports."""
 
 # core
-from core import environConfig, stats, images
+from core import environConfig, stats, images, graphing
 from accountdata import AccountData
 
 # third party libs
 import pandas as pd
 import numpy as np
+
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.patches as mpatches
+
 from reportlab.pdfgen import canvas
 from reportlab.graphics import renderPDF
-from reportlab.platypus import SimpleDocTemplate, Paragraph, PageBreak, KeepTogether
+from reportlab.platypus import SimpleDocTemplate, Paragraph, PageBreak, KeepTogether, Table, TableStyle
+from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm, cm, inch
+
 from svglib.svglib import svg2rlg
 
 # python core
@@ -39,7 +43,7 @@ class Report():
  
     def __init__(self, Account: AccountData):
         ######
-        # Account data application control
+        # Account Data
         ######
         self.account = Account
 
@@ -48,9 +52,9 @@ class Report():
         ######
 
         self.sample_style_sheet = getSampleStyleSheet()
-        self.author = self.AUTHOR
-        self.encrypt = self.ENCRYPT
-        self.title = self.TITLE
+        self.author             = self.AUTHOR
+        self.encrypt            = self.ENCRYPT
+        self.title              = self.TITLE
 
         # note: string lit's are not rendered into the final pdf
         self.blurb = """A detailed personal finance report on investments, incomes,
@@ -64,7 +68,19 @@ class Report():
             Paragraph(self.title, title_style),
             Paragraph(self.blurb, body_style),
         ]
-        self.add_graph()
+
+        # add in the graphs
+        figsize = (A4[0]/92,A4[1]/92) # janky magic number scaling.
+        income_graphs = self.account.display_income_stats(figsize=figsize)
+        savings_graphs = self.account.display_savings_stats(figsize=figsize)
+        expenditure_graphs = self.account.display_expenditure_stats(figsize=figsize)
+
+        self.flowables.append(income_graphs)
+        self.make_table(self.account.incomes.drop(labels=["File Source"], axis=1), body_style, "Income Transactions")
+        self.flowables.append(savings_graphs)
+        self.make_table(self.account.savings.drop(labels=["File Source"], axis=1), body_style, "Savings Transactions")
+        self.flowables.append(expenditure_graphs)
+        self.make_table(self.account.expenditures.drop(labels=["File Source"], axis=1), body_style, "Expenditures Transactions")
 
         self.report_val = self.build_report()
         self.write_pdf()
@@ -73,20 +89,36 @@ class Report():
     def __repr__(self):
         return("pdf report: {title} by {author}".format(title=self.title, author=self.author))
 
-    # getters/setters/updaters
+    def make_table(self, data: pd.DataFrame, style:str, title:str):
+        def _strip(val: str, charLimitLen=42):
+            return (val[:charLimitLen] + "...")
+
+        data["Description"] = data["Description"].apply(_strip)
+        t = Table(data.values.tolist())
+        t.setStyle(TableStyle([("BOX", (0, 0), (-1, -1), 0.25, colors.black),
+                       ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.black)]))
+        header = Paragraph("<bold><font size=18>{}</font></bold>".format(title), style)
+
+        for each in range(len(data)):
+            if each % 2 == 0:
+                bg_color = colors.whitesmoke
+            else:
+                bg_color = colors.lightgrey
+
+            t.setStyle(TableStyle([('BACKGROUND', (0, each), (-1, each), bg_color)]))        
+        aW = 540
+        aH = 720
+
+        w, h = header.wrap(aW, aH)
+        self.flowables.append(header)
+        aH = aH - h
+        w, h = t.wrap(aW, aH)
+        
+        self.flowables.append(t)
+        return
+
 
     # class methods
-    def add_graph(self):
-        figsize = (A4[0]/92,A4[1]/92) # janky magic number scaling.
-        # TODO: figure out what conversion plt -> svg -> drawing -> canvas even does????
-        income_graphs = self.account.display_income_stats(figsize=figsize)
-        savings_graphs = self.account.display_savings_stats(figsize=figsize)
-        expenditure_graphs = self.account.display_expenditure_stats(figsize=figsize)
-
-        self.flowables.append(income_graphs)
-        self.flowables.append(savings_graphs)
-        self.flowables.append(expenditure_graphs)
-        
     def add_text(self):
         pass
     def add_overlay(self):

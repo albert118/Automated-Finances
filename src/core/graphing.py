@@ -41,7 +41,7 @@ def autoLabel(rects: container.BarContainer, ax: axes.Axes, fontSize: int):
     
     return
 
-def Graphing_PieChart(labels: list, values:list, ax: axes.Axes, category=None, LABELS=None, size=0.5, fontSize=9, rad=1, loc=None):
+def Graphing_PieChart(labels: list, values:list, ax: axes.Axes, category=None, size=0.5, fontSize=9, rad=1, loc=None, LABELS=None):
     """Pie chart constructor with custom design.
     
     Pie chart constructor for given labels and sizes. This generates 'donut' pie charts with
@@ -52,10 +52,10 @@ def Graphing_PieChart(labels: list, values:list, ax: axes.Axes, category=None, L
         values(list):   elems(float):  A list of float values to create chart with
         ax(axes.Axes):  The axis object to bind to
         category(str):  The category being plotted, if None, no title is set
-        LABELS(bool):   LABELS True sets default labels (top right), False or None sets lower center
         size(float):    A vlaue that controls the size of the wedges generated for the 'donut' pies
         fontSize(int):  The font size of labelling.
         rad(float):     The radius of the pie chart. The inner radius (wedge rad) is scaled from this
+        LABELS(bool):   Legacy API call to control if a legend is rendered.
 
     """
 
@@ -63,22 +63,27 @@ def Graphing_PieChart(labels: list, values:list, ax: axes.Axes, category=None, L
     wedges, texts, autotexts = ax.pie(
             [math.fabs(x) for x in values], 
             labels=None, autopct="%1.1lf%%", 
-            shadow=False, radius=rad, pctdistance=(rad+rad*0.1),
+            shadow=False, radius=rad, pctdistance=(1.25),
             wedgeprops=dict(width=size, edgecolor='w')
         )
     
     # Creating the legend labels, use the label keys initially passed to us
     # Use a bbox to set legend below pie chart for improved visibility if legend enabled
-    
-    if labels is not None and loc is None:
-        ax.legend(wedges, labels, loc="upper right")
-    elif loc is not None:
-        ax.legend(wedges, labels, loc=str(loc))
-    else:
+
+    if labels:
         ax.legend(wedges, labels, loc="lower right", bbox_to_anchor=(rad*0.2, -0.4))
+
+        if loc:
+            ax.legend(wedges, labels, loc=str(loc), bbox_to_anchor=(1,0))
+        else:
+            ax.legend(wedges, labels, loc="upper right")
+
     
     if category is not None:
-        ax.set_title(category.capitalize().replace('_', ' '), weight="bold") # default title
+        if loc:
+            ax.set_title(category.capitalize().replace('_', ' '), weight="bold", loc=loc)
+        else:
+            ax.set_title(category.capitalize().replace('_', ' '), weight="bold")
     
     plt.setp(autotexts, size=fontSize, weight="bold")
     return
