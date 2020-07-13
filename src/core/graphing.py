@@ -6,6 +6,7 @@
 """
 
 # core
+from core.timeManips import timeManips_timestampConvert
 
 # third party libs
 import numpy as np
@@ -88,7 +89,7 @@ def Graphing_PieChart(labels: list, values:list, ax: axes.Axes, category=None, s
     plt.setp(autotexts, size=fontSize, weight="bold")
     return
 
-def Graphing_BarChart(labels: list, values: list, ax: axes.Axes, label="Default Bar Chart Label"):
+def Graphing_BarChart(labels: list, values: list, ax: axes.Axes, label="Default Bar Chart Label", colours=[CMAP(j) for j in range(1,10)], Labels=True):
     """Bar chart constructor for given labels and sizes.
 
     **Args:**
@@ -109,10 +110,12 @@ def Graphing_BarChart(labels: list, values: list, ax: axes.Axes, label="Default 
     labels.reverse()
     values.reverse()
 
-    rects = ax.bar(scaled_x, values, width, color=[CMAP(i) for i in range(0,n_labels)], label=label)
+    rects = ax.bar(scaled_x, values, width, color=colours, label=label)
     ax.set_xticks(scaled_x)
-    ax.set_xticklabels([label.capitalize().replace('_', ' ') for label in labels])
-    autoLabel(rects, ax,fontSize)
+
+    if Labels:
+        ax.set_xticklabels([label.capitalize().replace('_', ' ') for label in labels])
+        autoLabel(rects, ax,fontSize)
 
     return
 
@@ -253,41 +256,46 @@ def Graphing_CulmDataPlot(data: pd.DataFrame, bins: int, ax: axes.Axes, label: s
 
     return
 
-def Graphing_TimeDeltaPlot(data: pd.DataFrame, ax: axes.Axes, label: str, rotation=20):
+def Graphing_TimePlot(data: list, dates: list, ax: axes.Axes, label: str, rotation=20, diff_mode=False, annotations=False):
     """Plot the change in cases and deaths per country as a timeline.
         
     **Args:**
-        data(pd.dataframe): The data to index by time. This should include Value and Date as attributes.
+        data(list):         The data to index by time.
+        dates(list):        A list of dates to graph against data.
         ax(axes.Axes):      A premade axis to attach the graph to.
         label(str):         The graph title.
         rotation(int):      X-axis label rotation. Default is 20.
+        diff_mode(bool):    Calculates the diff on every date value passed. Default is False (off).
+        annotations(bool):  Annotates the data points to each line plotted. Default is False (off).
 
     """
     
-    dates_axis = data.Date
-    yData_axis = data.Value.diff()
+    if diff_mode:
+        yData_series = timeManips_timestampConvert(dates).diff().iloc[:,0].tolist()
+    else:
+        yData_series = timeManips_timestampConvert(dates)
 
-    markerline, stemline, baseline = ax.stem(dates_axis, yData_axis, linefmt="C3-", basefmt="k-", use_line_collection=True)
+    markerline, stemline, baseline = ax.stem(yData_series, data, linefmt="C3-", basefmt="k-", use_line_collection=True)
 
     plt.setp(markerline, mec="k", mfc="w", zorder=3) # recolour markers and remove line through them
-    markerline.set_ydata(np.zeros(len(data.dateRep)))
+    markerline.set_ydata(np.zeros(len(yData_series)))
 
-    # Annotate lines
-    vert = np.array(['top', 'bottom'])[(yData_axis > 0).astype(int)]
-    for d, l, r, va in zip(dates_axis, list(yData_axis), yData_axis, vert):
-        if not (l > 0 or l < 0):
-            continue
-        text = ax.annotate(r, xy=(d, l), xytext=(-3, np.sign(l)*3),
-                textcoords="offset points", va=va, ha="right")
-        text.set_rotation(-45)
+    if annotations:
+        # Annotate lines
+        vert = np.array(['top', 'bottom'])[(data > 0).astype(int)]
+        for d, l, r, va in zip(yData_series, data, data, vert):
+            if not (l > 0 or l < 0):
+                continue
+            text = ax.annotate(r, xy=(d, l), xytext=(-3, np.sign(l)*3),
+                    textcoords="offset points", va=va, ha="right")
+            text.set_rotation(-45)
     
     # Formatting
     ax.set_title(label)
-    ax.set_xticks(roation=rotation)
-    ax.get_yaxis().set_visible(False)
+    plt.xticks(rotation=rotation)
+    ax.get_yaxis().set_visible(True)
     
     # Make spines invisible.
     for spine in ["left", "top", "right"]:
         ax.spines[spine].set_visible(False)
-
     return

@@ -32,7 +32,7 @@ import traceback
 import warnings
 import sys
 
-def Payslips_getPayslips(self, true_col_header_index = 5) -> (pd.DataFrame, pd.DataFrame):
+def Payslips_getPayslips(basedir: str, subfolder: str, true_col_header_index=5) -> (pd.DataFrame, pd.DataFrame):
         """Retreive the payslip pdf and create aggregate and latest_week frames.
         
         Convert "structured" pdf to frames for easy use later, this is lots of *icky* scraping/conversion code.
@@ -195,7 +195,7 @@ def Payslips_getPayslips(self, true_col_header_index = 5) -> (pd.DataFrame, pd.D
         aggregate_income_header_idx = None
 
         # retrieve the payslip, uses the tabula pdf_reader
-        f_dir = os.path.join(self.BASE_DIR, self.SUB_FOLDERS[1])
+        f_dir = os.path.join(basedir, subfolder)
         fn = datetime.now().strftime("%d-%m-%Y")+".pdf"
         payslip_name = os.path.join(f_dir, fn)
         data = read_pdf(payslip_name)[0] # using Tabula for the pdf read out to data (dataframe)

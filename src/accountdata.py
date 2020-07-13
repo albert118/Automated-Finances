@@ -3,14 +3,11 @@
     :platform: Unix, Windows
     :synopsis: Data layer management of the automated finance project. 
 .. moduleauthor:: Albert Ferguson <albertferguson118@gmail.com>
-
-.. note:: Returns of most functions are ByteIO streams.
-.. note:: TODO convert all to this where appropriate.
 """
 
 # core
 from core import environConfig, graphing, images
-
+from paychecks import Payslips_getPayslips as getPayslips
 # third party libs
 import pandas as pd
 from pandas import Timestamp
@@ -120,10 +117,6 @@ class AccountData():
         getBankData(self) -> pd.DataFrame
             get the income bank data, pass it back to getIncomes for handling.
 
-        getPayslips(self, payslip_name='payslip.pdf', true_col_header_index = 5) -> pd.DataFrame
-            get the income data from payslip data, pass it back to getIncomes 
-            for handling.
-
         setExpenditures(self, data): Set the expenditures transaction data from given data.
     
         setSavings(self, data): Set the savings transaction data from given data.
@@ -211,9 +204,6 @@ class AccountData():
         self.setSavings(account_frame)
         self.setIncomes(account_frame)
 
-        # income_week_data = self.getPayslips()
-        # incomes["latest_week_income"] = income_week_data
-        
     ############################################################################
     # Data Ingest
     # 	Factories for sifting raw data and returning tx objects to the class.
@@ -240,256 +230,6 @@ class AccountData():
         account_dataframe.Date        = pd.to_datetime(account_dataframe.Date, format="%d/%m/%Y")
 
         return account_dataframe
-    
-    def getPayslips(self, true_col_header_index = 5) -> (pd.DataFrame, pd.DataFrame):
-        """Retreive the payslip pdf and create aggregate and latest_week frames.
-        
-        Convert "structured" pdf to frames for easy use later, this is lots of
-        icky scraping/conversion code.
-        
-        **Args:**
-            payslip_name(str): The name of the file to scrape. Default is the
-                download name default. This is usually for testing purposes.
-
-        true_col_header_index(int): This value is used to relatively find further dataframes from the pdf.
-            The row index where column titles are actually located. This
-            over-rides the default behaviour of tabula guessing where this
-            would be otherwise (and being wrong typically).
-            
-            **Yes this is a magic number.**
-            .. note:: No it isn't tested for everything, only for my example with ADP.
-            .. note:: Inspect this value yourself if the data is incorrectly parsed.
-
-        **Notes:**
-            .. note:: This function is intended to call up the latest payslip for
-                weekly displays, the stats function for income then aggregates data for
-                longer timeframes.
-
-        **Returns:**
-            latest_week_income(pandas.DataFrame): The the dataframe with hourly data, commissions and deductions.
-                ['Description_Hours', 'Rate', 'Hours', 'Value_Hours', 'Description_Other', 'Tax_Ind', 'Value_Other']
-
-            aggregate_income( pandas.DataFrame): The aggregate income values.
-                ['Gross', 'Taxable Income', 'Post Tax Allows/Deds', 'Tax', 'NET']
-        """
-
-        ########################################################################
-        # Internal Utilities
-        ########################################################################
-        
-        def _rename_headers(dataframe, header_index, cols_default_headers):
-            """ Rename the column headers from default guesses to the correct values.
-            
-            .. note:: Also performs some housekeeping by reindexing and dropping the header row. 
-            
-            .. note:: Due to the nature of separating a frame like this, it is possible to create duplicate 
-                header titles if _split_merged_columns is applied next, keep this in mind.
-            """
-
-            try:
-                i = 0                          
-                for col in cols_default_headers:
-                    dataframe.rename(columns={col:str(dataframe.loc[header_index, col])}, inplace=True, copy=False)
-                    i -=- 1
-
-                dataframe = dataframe.drop(header_index)
-                row_id = list(range(len(dataframe)))
-                dataframe["row_id"] = row_id
-                dataframe.set_index("row_id", inplace=True)
-                
-                if "Tax Ind" in dataframe.columns:
-                    dataframe.rename(columns={"Tax Ind": "Tax_Ind"}, inplace=True, copy=False)
-                
-                if np.NaN in dataframe.columns:
-                    dataframe = dataframe.drop(np.NaN, axis=1)
-                return dataframe
-
-            except TypeError:
-                print("The header index was not correctly calculated, please check the header for the frame manually.\n")
-                traceback.print_exc()
-                traceback.print_stack()
-                return
-
-            except Exception as e:
-                print("An unknown exception occured in renaming the headers of the frame.\n")
-                print(type(e), '\n')
-                print('Current frame:\n', dataframe, '\n')
-                input()
-                return 
-
-        def _split_merged_columns(dataframe) -> pd.DataFrame:
-            hdr_vals = dataframe.columns.tolist() # check first row 'splittable'
-            idxs_added = []
-
-            i = 0
-            # start by splitting column names and inserting blank columns ready for data
-            for val in hdr_vals:
-                if ' ' in str(val):
-                    new_hdrs = val.split()
-                    # insert a new column at this position with NaN type values
-                    try:
-                        dataframe.insert(i + 1, new_hdrs[1], np.NaN)
-                    except ValueError:
-                        # Duplicate case, we had a duplicate to insert!
-                        # add _Other to distinguish it
-                        dataframe.insert(i + 1, new_hdrs[1] + '_Other', np.NaN)
-
-                    # rename the current column and record the insertion idx
-                    # edge case, possible that column renamed to existing name
-                    if new_hdrs[0] in dataframe.columns.values:
-                        idx = dataframe.columns.values.tolist().index(new_hdrs[0])
-                        dataframe.columns.values[idx] = str(new_hdrs[0] + '_Other')
-                        dataframe.columns.values[i] = new_hdrs[0]
-                    else:
-                        dataframe.columns.values[i] = new_hdrs[0]
-                    
-                    idxs_added.append(i)
-                    i -=- 2 # skip the col we just made
-                else:
-                    i -=- 1 # not splitable, skip
-
-            # now split the vals in cols tracked by idxs_added
-            # and perform type conversion and string formatting
-            for i in range(len(dataframe)):
-                # idxs_added tracked which cols need data_points split to vals
-                for idx in idxs_added:
-                    data_point = dataframe.iloc[i, idx]
-                    if type(data_point) == float:
-                        continue # skip nan types		
-                    vals = data_point.split()
-
-                    try:
-                        string_val = ''
-                        # val is unknown combination of strings, floats (maybe nan) vals
-                        length = len(vals)
-                        j = 0
-                        while j < length:
-                            try:
-                                vals[j]= float(vals[j])
-                                j -=- 1
-                            except ValueError: 
-                                # val was string, apply string formating
-                                string_val += ' ' + vals.pop(j).replace('*', '').lower().capitalize()
-                                length -= 1
-                                
-                        if len(string_val) is not 0: 
-                            # apply final string formating
-                            string_val = string_val.strip()
-
-                        if len(vals) > 2:
-                            # we dont know what is there then, RuntimeError and hope for the best
-                            raise RuntimeError
-                        elif len(vals) is 0:
-                            vals =tuple([np.nan, string_val])
-                        elif len(string_val) is 0:
-                            vals = tuple(vals)
-                        else:
-                            vals = tuple(vals.append(string_val))
-
-                    except Exception as e:
-                        # TODO: add logging to log file here
-                        # we dont know error, pass and hope it's caught else where
-                        print(e)
-                        # traceback.print_stack()
-                        pass
-
-                    # add the data to the new column
-                    dataframe.iloc[i, idx + 1] = vals[1]
-                    # then replace the merged values with the single column value
-                    dataframe.iloc[i, idx] = vals[0]
-
-            return dataframe.drop(['nan'], axis= 1)
-
-        ########################################################################
-
-        aggregate_income = pd.DataFrame()
-        latest_week_income = pd.DataFrame()
-        aggregate_income_header_idx = None
-
-        # retrieve the payslip, uses the tabula pdf_reader
-        f_dir = os.path.join(self.BASE_DIR, self.SUB_FOLDERS[1])
-        fn = datetime.now().strftime("%d-%m-%Y")+".pdf"
-        payslip_name = os.path.join(f_dir, fn)
-        data = read_pdf(payslip_name)[0] # using Tabula for the pdf read out to data (dataframe)
-
-        try:
-            data = data.drop(["Unnamed: 0", "Status"], axis=1)
-            cols_default_headers = data.columns.values
-        except (KeyError, ValueError) as e:
-            raise e
-
-        # split the data into new columns where tabula merged them, this must be
-        # dynamic as user could work further combinations of work rates, etc...
-        for i in range(true_col_header_index, len(data)):
-            row_split_check = data.iloc[[i]].isnull()
-            if row_split_check.values.any():
-                bool_header_NaN_spacing = row_split_check.sum().tolist()
-
-                if bool_header_NaN_spacing.count(0) == 1:
-                    # this is the index where we split the data frame from aggregate
-                    # and stat's income values, break after saving the new df
-                    latest_week_income = data[true_col_header_index:i]
-                    aggregate_income = data[i + 1:len(data)]
-                    aggregate_income_header_idx = i + 1
-                    break
-
-        # use correct titles in row_id = true_col_header_index for column header values
-        if latest_week_income.empty or aggregate_income.empty:
-            print("A frame was incorrectly initialised.")
-            raise ValueError
-        else:
-            latest_week_income = _rename_headers(
-                latest_week_income, true_col_header_index, cols_default_headers)
-            aggregate_income = _rename_headers(
-                aggregate_income, aggregate_income_header_idx, cols_default_headers)
-            
-        try:
-            # now the frames have been split horizontally, 
-            # split vertically where some columns have been merged
-            latest_week_income = _split_merged_columns(latest_week_income)
-        except Exception  as e:
-            print(e, "\nCould not split merged data values of income stats data.")
-            pass
-
-        # manually correct the some column titles
-        aggregate_income.rename(
-            columns={
-                aggregate_income.columns[2]: "Pre_Tax_Deds",
-                aggregate_income.columns[2]: "Post_Ta_Deds",
-            },
-            inplace=True,
-            copy=False)
-        # now we try to remove NaNs from the frames
-        # return our corrected frames
-        # first elem of col sets type, assume blanks never form in first row
-        t_vals = [type(e) for e in list(latest_week_income.loc[0,:])]
-        cols = list(latest_week_income.columns.values)
-        # latest_week_income = latest_week_income.astype(dict(zip(cols, t_vals)))
-        for i, col in enumerate(cols):
-            t_type = t_vals[i]
-            # determine k: the first idx with NaN in a col
-            # i.e. the first True index in a isnull() test
-            try:
-                k = list(latest_week_income[col].isnull()).index(True)
-            except ValueError:
-                k = -1
-
-            if k == -1:
-                continue
-            elif t_type == str:
-                latest_week_income.loc[:,col].values[k:] = ''
-            elif t_type == float or t_type == np.float64:
-                latest_week_income.loc[:,col].values[k:] = 0.0
-            else:
-                pass
-
-        try:
-            # add summative data from latetst_week_income to aggregate_income
-            aggregate_income["Total_Hours"] = sum(latest_week_income.Hours) 
-        except (AttributeError, Exception) as e:
-            pass
-        
-        return aggregate_income, latest_week_income
 
     ############################################################################
     # Setters
@@ -763,7 +503,7 @@ class AccountData():
         # Single Chart
         ##############
 
-        jbAggregate_dataframe, jbIncomeLatestWeek_dataframe  = self.getPayslips()
+        jbAggregate_dataframe, jbIncomeLatestWeek_dataframe  = getPayslips(self.BASE_DIR, self.SUB_FOLDERS[1])
 
         # labels
         hourlyLabels_list        = jbIncomeLatestWeek_dataframe["Description"].values.tolist()
@@ -829,9 +569,10 @@ class AccountData():
             title_str = str(labelsCat_list[0][:catIdx_int])
         
         barChartSavings_ax	= plt.Subplot(fig, disp_bottom[0])
-        graphing.Graphing_BarChart(labelsDes_list.tolist(), value_list.tolist(), barChartSavings_ax)
+        graphing.Graphing_BarChart(labelsDes_list.tolist(), value_list.tolist(), barChartSavings_ax, Labels=False)
         barChartSavings_ax.set_ylabel('Savings')
         barChartSavings_ax.set_xlabel('Date and Description')
+        plt.xticks(rotation=30)
         fig.add_subplot(barChartSavings_ax)
 
         totalSavings_int = sum(value_list)
@@ -840,54 +581,8 @@ class AccountData():
         scatterChartSavings_ax.set_ylabel("Savings Data")
         scatterChartSavings_ax.set_xlabel("Savings Date")
         fig.add_subplot(scatterChartSavings_ax)
-        plt.suptitle("Savings Statistics")
+        scatterChartSavings_ax.set_title("Savings Statistics")
         plt.xticks(rotation=30)
-
-        
-        ########################################################################
-        # LEGACY
-        ########################################################################
-
-        # multiple savings sources, grab the raw data
-        # savings_data = [[] for i in range(len(self.savings))]
-        # savings_dates = [[] for i in range(len(self.savings))]
-        # lbls = tuple(key for key in self.savings.keys())
-        
-        # for i, key in enumerate(self.savings):
-        # 	savings_data[i] = [abs(tx.val) for tx in self.savings[key]]
-        # 	savings_dates[i] = [tx.date for tx in self.savings[key]]
-
-        # Add dates to savings labels
-        # for i in range(len(lbls)):
-        # 	# grab the label prefix and reset with correct list numbers
-        # 	savings_lbls = [[] for i in range(len(self.savings))]
-        # 	for j in range(len(savings_dates[i])):
-        # 		savings_lbls[i].append(lbls[i] + ' ' + savings_dates[i][j])
-
-        # TODO, not neccessairly the same week, this is intended to be used in the scatter vs. savings in same week
-        # to make it simpler, draw income net from the bank acc. data not the payslip, make the file's time-stamps work for us
-        # income_total_curr = float(self.incomes['aggregate_income'].Gross[0])
-        # total_savings = 0
-
-        # for savings in savings_data:
-        # 	total_savings += sum(savings)
-        # savings_perc = total_savings/income_total_curr		
-
-        # TODO : Add support for graphing all 3 sub cats for accounts (combined or seperate whatever...)
-        # bar chart subplot on disp_bottom
-        # ax_savings_bar	= plt.Subplot(fig, disp_bottom[0])
-        # graphing.Graphing_BarChart(savings_lbls[1], savings_data[1], ax_savings_bar)
-        # ax_savings_bar.set_ylabel('Savings')
-        # ax_savings_bar.set_xlabel('Date and Description')
-        # fig.add_subplot(ax_savings_bar)
-
-        # now create the trendline and place it in disp_top
-        # ax_savings_trend = plt.Subplot(fig, disp_top[0])
-        # graphing.Graphing_ScatterPlot(savings_dates[1], savings_data[1], ax_savings_trend, area=savings_perc)
-        # ax_savings_trend.set_ylabel("Savings Data")
-        # ax_savings_trend.set_xlabel("Savings Date")
-        # fig.add_subplot(ax_savings_trend)
-        # plt.suptitle("Savings Statistics")
         
         return images.img_buffer_to_svg(fig)
 
@@ -900,19 +595,20 @@ class AccountData():
         **Returns:**
             images.image_buffer_to_svg(PIL.image): An SVG PIL image.
         """
-            
+                
         # setup the grids for holding our plots, attach them to the same figure
         # inner_**** are for use with plotting, outer is purely spacing
         # colCtr_int   = math.ceil(len(self.expenditures.keys()))
         fig          = plt.figure(figsize=figsize)
-        outer        = gridspec.GridSpec(2, 1, figure=fig, height_ratios=[3,1])
+        outer        = gridspec.GridSpec(3, 1, figure=fig)
         inner_top    = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[0], wspace=0.1, hspace=0.1)
-        inner_bottom = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[1],wspace=0.1, hspace=0.1)
+        inner_middle = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[1], wspace=0.1, hspace=0.1)
+        inner_bottom = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[2], wspace=0.1, hspace=0.1)
+        colours      = [CMAP(j) for j in range(1,10)]
 
-        labelsCat_dict = {'unknown expenditures': 0} # tracks total expenditures per category
-        # labelsDes_list 	= self.expenditures.Description.values
+        labelsCat_dict  = {'unknown expenditures': 0} # tracks total expenditures per category
         labelsCat_list 	= self.expenditures.CatAndSub.values
-        # dates_list		= self.expenditures.Date.values
+        dates_list		= self.expenditures.Date.values
         value_list      = self.expenditures.Value.values
 
         for i in range(len(self.expenditures)):
@@ -923,53 +619,37 @@ class AccountData():
                 cat_str = str(labelsCat_list[i][:catIdx_int])
                 if cat_str not in labelsCat_dict:
                     labelsCat_dict[cat_str] = value_list[i]
+                if cat_str in labelsCat_dict:
+                    labelsCat_dict[cat_str] += value_list[i]
                 else:
                     labelsCat_dict['unknown expenditures'] += value_list[i]
+        if labelsCat_dict['unknown expenditures'] == 0:
+            del labelsCat_dict['unknown expenditures']
 
-        expendituresPieChart_ax = fig.add_subplot(inner_top[0, 0]) # this is also one of the cleaner ways to create the axis
-        expendituresPieChart_ax.set_prop_cycle(color=[CMAP(j) for j in range(1,10)])
-        graphing.Graphing_PieChart(labelsCat_dict.keys(), labelsCat_dict.values(), expendituresPieChart_ax, category='Expenditure Percentages')
+        expendituresPieChart_ax = fig.add_subplot(inner_top[0]) # this is also one of the cleaner ways to create the axis
+        expendituresPieChart_ax.set_prop_cycle(color=colours)
+        # barchart reverses the data to appear in timeorder. Repeat for pie chart to get the same order of colours
+        reversedtoMatchValues_list = list(labelsCat_dict.values()); reversedtoMatchValues_list.reverse()
+        reversedtoMatchLabels_list = list(labelsCat_dict.keys()); reversedtoMatchLabels_list.reverse()
+        graphing.Graphing_PieChart(reversedtoMatchLabels_list, reversedtoMatchValues_list, expendituresPieChart_ax, category='Expenditure Percentages')
+        expendituresPieChart_ax.legend().remove()
         fig.add_subplot(expendituresPieChart_ax)
 
         expendituresBarChart_ax = fig.add_subplot(inner_bottom[0])
-        graphing.Graphing_BarChart(list(labelsCat_dict.keys()), list(labelsCat_dict.values()), expendituresBarChart_ax)
+        graphing.Graphing_BarChart(list(labelsCat_dict.keys()), list(labelsCat_dict.values()), expendituresBarChart_ax, colours=colours)
         expendituresBarChart_ax.set_ylabel('Expenditure')
         expendituresBarChart_ax.set_xlabel('Category of Expenditure')
         plt.suptitle("Expenditure Statistics")
+        # https://stackoverflow.com/questions/4700614/how-to-put-the-legend-out-of-the-plot, BEST EXPLANATION
+        # expendituresBarChart_ax.legend(labelsCat_dict.keys(), loc="lower left", bbox_transform=fig.transFigure,
+        #                         ncol=2, borderaxespad=0, mode="expand"
+        #                     )
+        plt.xticks(rotation=20)
         fig.add_subplot(expendituresBarChart_ax)
 
-        ########################################################################
-        # LEGACY
-        ########################################################################
-
-        # key_counter = 0
-        # for key, term_list in self.expenditures.items():
-        # 	label_vals = {}
-        # 	for tx in term_list:
-        # 		new_value = tx.val
-        # 		new_label = tx.desc
-        # 		if new_label not in label_vals:
-        # 			label_vals[new_label] = new_value
-        # 		else:
-        # 			label_vals[new_label] += new_value
-
-        # 	# new category creates a new axis on the upper plot region
-        # 	if key_counter < col_count:
-        # 		axN = fig.add_subplot(inner_top[0, key_counter]) # this is also one of the cleaner ways to create the axis
-        # 	else:
-        # 		axN = fig.add_subplot(inner_top[1, key_counter - col_count]) # this is also one of the cleaner ways to create the axis
-
-        # 	axN.set_prop_cycle(color=[CMAP(i) for i in range(1,10)])
-        # 	graphing.Graphing_PieChart(label_vals.keys(), label_vals.values(), axN, category=key)
-        # 	totals.append(sum(label_vals.values()))
-        # 	key_counter -=- 1
-
-        # plt.suptitle("Expenditure Statistics")
-        # ax_rect = fig.add_subplot(inner_bottom[0])
-        # graphing.Graphing_BarChart(list(self.expenditures.keys()), totals, ax_rect)
-        
-        # ax_rect.set_ylabel('Expenditure')
-        # ax_rect.set_xlabel('Category of Expenditure')
-        # fig.add_subplot(ax_rect)
+        expendituresTimeChart_ax = fig.add_subplot(inner_middle[0])
+        expendituresTimeChart_ax.set_prop_cycle(color=[CMAP(j) for j in range(1,10)])
+        graphing.Graphing_TimePlot(value_list, dates_list, expendituresTimeChart_ax, "Expenditure History")
+        fig.add_subplot(expendituresTimeChart_ax)
 
         return images.img_buffer_to_svg(fig)
