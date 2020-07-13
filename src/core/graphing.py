@@ -106,17 +106,12 @@ def Graphing_BarChart(labels: list, values: list, ax: axes.Axes, label="Default 
     n_labels          = len(labels)
     x                 = np.arange(n_labels)
     scaled_x          = [scaleFactor_float*i for i in x] # calculate length of x-axis then scale to match pie charts above
-
-    labels.reverse()
-    values.reverse()
-
     rects = ax.bar(scaled_x, values, width, color=colours, label=label)
-    ax.set_xticks(scaled_x)
 
     if Labels:
         ax.set_xticklabels([label.capitalize().replace('_', ' ') for label in labels])
-        autoLabel(rects, ax,fontSize)
-
+        ax.set_xticks(scaled_x)
+        plt.setp(ax.xaxis.get_majorticklabels(), rotation=45)
     return
 
 def Graphing_ScatterPlot(X: list, Y: list, ax: axes.Axes, area=10, ALPHA=0.9):
@@ -218,17 +213,16 @@ def Graphing_HistPlot(x: np.ndarray, bins: int, label:str, ax: axes.Axes) -> lis
         raise ValueError
 
     try:
-        returnVals_list = list(ax.hist(x, bins=bins, density=True, histtype="step", cumulative=True, label=label, align="mid"))
+        returnVals_list = list(ax.hist(x, bins=bins, density=False, histtype="step", cumulative=True, label=label, align="mid"))
     except ValueError:
         pass
     return returnVals_list
 
-def Graphing_CulmDataPlot(data: pd.DataFrame, bins: int, ax: axes.Axes, label: str):
+def Graphing_CulmDataPlot(data: pd.DataFrame, ax: axes.Axes, label: str):
     """Plot the values, culminatively, against to time.	
     
     **Args:**
         data(pd.DataFrame): The dataframe with the data to index by time.
-        bins(int):          A value for the number of bins to apply.
         ax(axes.Axes):      A premade axis to attach the graph to.
         label(str):         A label for the graph title.
 
@@ -242,18 +236,14 @@ def Graphing_CulmDataPlot(data: pd.DataFrame, bins: int, ax: axes.Axes, label: s
     
     if ax is None:
         raise ValueError
-    
-    Graphing_HistPlot(data.Value, bins, label, ax)
 
-    # xticks logic sets a tick for every month, as data is in time order this places the hist in time order
+    # ax.candlestick2_ochl(list(data.Value > 0), list(data.Value < 0))
+
     ax.legend(loc="right")
     ax.set_title(label)
-    ax.set_xticks(
-                ticks=np.arange(0, ax.get_xlim()[1], ax.get_xlim()[1]/bins),
-                labels=data.dateRep,
-                rotation=30
-            )
-
+    # ax.set_xticks(np.arange(0, ax.get_xlim()[1], ax.get_xlim()[1]/bins))
+    plt.setp(ax.xaxis.get_majorticklabels(), rotation=45)
+    ax.set_xlabel(data.Date.tolist())
     return
 
 def Graphing_TimePlot(data: list, dates: list, ax: axes.Axes, label: str, rotation=20, diff_mode=False, annotations=False):

@@ -184,7 +184,7 @@ class AccountData():
             'enterainment': 		env.list("ENTERTAINMENT"),
         }
 
-        self.SAVINGS_IDS = [env("ACC_1"), env("ACC_2")]
+        self.SAVINGS_IDS = env.list("SAVINGS")
 
         if "account_frame" in kwargs:
             # assign debug frame for testing if in kwargs
@@ -340,7 +340,7 @@ class AccountData():
             _data = data
         else:
             _data = None
-            raise AttributeError
+            raise ValueError
 
         for i in range(len(_data)):
             try:
@@ -359,7 +359,7 @@ class AccountData():
                 try:
                     date_Timestamp = datetime.strptime(_data.loc[i, "Date"], "%d-%m-%Y")
                 except KeyError:
-                        date_Timestamp = Timestamp.today
+                    date_Timestamp = Timestamp.today
             except KeyError:
                 date_Timestamp = Timestamp.today
 
@@ -367,11 +367,13 @@ class AccountData():
                 filesource_path = _data.loc[i, "Filesource"]
             except KeyError:
                 filesource_path = ' '
+
+            print(_data.loc[i])
         
             # tx for savings should includes the category (account id typically) ref
             for cat in self.SAVINGS_IDS:
                 if cat in desc_str:
-                    txObject_dict = TxData(tx_float, date_Timestamp, desc_str, cat+": ", filesource_path).toDict()
+                    txObject_dict = TxData(-1*tx_float, date_Timestamp, desc_str, cat+": ", filesource_path).toDict()
                     savings_list.append(txObject_dict)
                     break
 
@@ -538,6 +540,8 @@ class AccountData():
             images.image_buffer_to_svg(PIL.image): An SVG PIL image.
         """
 
+        
+            
         fig = plt.figure(figsize=figsize)
         # Display savings across accounts, bar per acc., i.e. bar figure
         # Trendline of account, with short range projection (1 month)
@@ -554,36 +558,35 @@ class AccountData():
         disp_bottom 	= gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer_grid_spec[1],
                     wspace=0.1, hspace=0.1)
 
-        labelsDes_list 	= self.savings.Description.values
-        labelsCat_list 	= self.savings.CatAndSub.values
-        dates_list		= self.savings.Date.values
-        value_list      = self.savings.Value.values
+        # labelsDes_list 	= self.savings.Description.values.tolist()
+        # labelsCat_list 	= self.savings.CatAndSub.values.tolist()
+        dates_list		= self.savings.Date.values.tolist()
+        value_list      = self.savings.Value.values.tolist()
 
+        dates_list.reverse()
+        value_list.reverse()
         
+        diff_list       = []
+        total = 0
+        for x in value_list:
+            total += x
+            diff_list.append(total)
+        print(pd.DataFrame(diff_list))
+        print(len(diff_list))
 
-        # Retrieve a title name for the graph to be made.
-        catIdx_int    = labelsCat_list[0].find(":")
-        if catIdx_int == -1:
-            title_str = "Uknown Income Data"
-        else:
-            title_str = str(labelsCat_list[0][:catIdx_int])
-        
         barChartSavings_ax	= plt.Subplot(fig, disp_bottom[0])
-        graphing.Graphing_BarChart(labelsDes_list.tolist(), value_list.tolist(), barChartSavings_ax, Labels=False)
-        barChartSavings_ax.set_ylabel('Savings')
-        barChartSavings_ax.set_xlabel('Date and Description')
-        plt.xticks(rotation=30)
+        graphing.Graphing_BarChart(dates_list, value_list, barChartSavings_ax)
+        barChartSavings_ax.set_ylabel('Savings $')
+        barChartSavings_ax.set_xlabel('Date and Description (dd/mm/yyy)')
         fig.add_subplot(barChartSavings_ax)
 
-        totalSavings_int = sum(value_list)
-        scatterChartSavings_ax = plt.Subplot(fig, disp_top[0])
-        graphing.Graphing_ScatterPlot(dates_list, value_list, scatterChartSavings_ax, area=totalSavings_int)
-        scatterChartSavings_ax.set_ylabel("Savings Data")
-        scatterChartSavings_ax.set_xlabel("Savings Date")
-        fig.add_subplot(scatterChartSavings_ax)
-        scatterChartSavings_ax.set_title("Savings Statistics")
-        plt.xticks(rotation=30)
+        culmChange_ax = plt.Subplot(fig, disp_top[0])
+        culmChange_ax.plot(dates_list, diff_list)
+        graphing.Graphing_BarChart(dates_list, diff_list ,culmChange_ax, "Culminative Savings")
+        culmChange_ax.set_ylabel("Savings $")
+        fig.add_subplot(culmChange_ax)
         
+        culmChange_ax.set_title("Savings Overview")
         return images.img_buffer_to_svg(fig)
 
     def display_expenditure_stats(self, figsize=(10,10)):
