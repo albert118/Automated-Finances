@@ -725,10 +725,10 @@ class AccountData():
 
 		# setup the grids for holding our plots, attach them to the same figure
 		# inner_**** are for use with plotting, outer is purely spacing
-		n_charts_top = len(self.incomes)
+		# n_charts_top = len(self.incomes)
 		fig          = plt.figure(figsize=figsize)
 		outer        = gridspec.GridSpec(2, 1, wspace=0.2, hspace=0.2)
-		inner_top    = gridspec.GridSpecFromSubplotSpec(1, n_charts_top, subplot_spec=outer[0], wspace=0.1, hspace=0.1)
+		inner_top    = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[0], wspace=0.1, hspace=0.1)
 		inner_bottom = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[1],wspace=0.1, hspace=0.1)
 
 		# i = 0
@@ -745,10 +745,11 @@ class AccountData():
 		else:
 			title_str = str(labelsCat_list[0][:catIdx_int])
 		
-		currentIncome_ax = plt.Subplot(fig, inner_top[0])
+		currentIncome_ax = fig.add_subplot(inner_top[0, 0]) # this is also one of the cleaner ways to create the axis
 		currentIncome_ax.set_prop_cycle(color=[CMAP(j) for j in range(1,10)])
 		graphing.Graphing_PieChart(labelsDes_list, value_list, currentIncome_ax, category=title_str, LABELS=False)
 		fig.add_subplot(currentIncome_ax)
+
 		# i += 1
 
 		# if i == n_charts_top:
@@ -925,10 +926,10 @@ class AccountData():
 			
 		# setup the grids for holding our plots, attach them to the same figure
 		# inner_**** are for use with plotting, outer is purely spacing
-		colCtr_int = math.ceil(len(self.expenditures.keys()))
+		# colCtr_int   = math.ceil(len(self.expenditures.keys()))
 		fig          = plt.figure(figsize=figsize)
-		outer = gridspec.GridSpec(2, 1, figure=fig, height_ratios=[3,1])
-		inner_top    = gridspec.GridSpecFromSubplotSpec(1, colCtr_int, subplot_spec=outer[0], wspace=0.1, hspace=0.1)
+		outer        = gridspec.GridSpec(2, 1, figure=fig, height_ratios=[3,1])
+		inner_top    = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[0], wspace=0.1, hspace=0.1)
 		inner_bottom = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[1],wspace=0.1, hspace=0.1)
 
 		labelsCat_dict = {'unknown expenditures': 0} # tracks total expenditures per category
@@ -947,25 +948,18 @@ class AccountData():
 					labelsCat_dict[cat_str] = value_list[i]
 				else:
 					labelsCat_dict['unknown expenditures'] += value_list[i]
-		
-		keyCtr_int = 0
-		for key, val in labelsCat_dict.items():
-			# new category creates a new axis on the upper plot region
-			# if keyCtr_int < colCtr_int:
-			# 	axN = fig.add_subplot(inner_top[0, keyCtr_int]) # this is also one of the cleaner ways to create the axis
-			# else:
-			# 	axN = fig.add_subplot(inner_top[1, keyCtr_int - colCtr_int]) # this is also one of the cleaner ways to create the axis
-			axN = fig.add_subplot(inner_top[0, keyCtr_int]) # this is also one of the cleaner ways to create the axis
-			axN.set_prop_cycle(color=[CMAP(j) for j in range(1,10)])
-			graphing.Graphing_PieChart(labelsCat_dict.keys(), labelsCat_dict.values(), axN, category=key)
-			keyCtr_int += 1
 
-		savingsBarChart_ax = fig.add_subplot(inner_bottom[0])
-		graphing.Graphing_BarChart(list(labelsCat_dict.keys()), list(labelsCat_dict.values()), savingsBarChart_ax)
-		savingsBarChart_ax.set_ylabel('Expenditure')
-		savingsBarChart_ax.set_xlabel('Category of Expenditure')
+		expendituresPieChart_ax = fig.add_subplot(inner_top[0, 0]) # this is also one of the cleaner ways to create the axis
+		expendituresPieChart_ax.set_prop_cycle(color=[CMAP(j) for j in range(1,10)])
+		graphing.Graphing_PieChart(labelsCat_dict.keys(), labelsCat_dict.values(), expendituresPieChart_ax, category='Expenditure Percentages')
+		fig.add_subplot(expendituresPieChart_ax)
+
+		expendituresBarChart_ax = fig.add_subplot(inner_bottom[0])
+		graphing.Graphing_BarChart(list(labelsCat_dict.keys()), list(labelsCat_dict.values()), expendituresBarChart_ax)
+		expendituresBarChart_ax.set_ylabel('Expenditure')
+		expendituresBarChart_ax.set_xlabel('Category of Expenditure')
 		plt.suptitle("Expenditure Statistics")
-		fig.add_subplot(savingsBarChart_ax)
+		fig.add_subplot(expendituresBarChart_ax)
 
 		########################################################################
 		# LEGACY

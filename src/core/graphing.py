@@ -79,6 +79,11 @@ def Graphing_PieChart(labels: list, values:list, ax: axes.Axes, category=None, L
     
     plt.setp(autotexts, size=fontSize, weight="bold")
 
+    print(values)
+    print(labels)
+    print(wedges)
+    plt.show()
+    input()
     return
 
 def Graphing_BarChart(labels: list, values: list, ax: axes.Axes, label="Default Bar Chart Label"):

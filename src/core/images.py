@@ -13,36 +13,23 @@ import sys
 from datetime import datetime
 from io import BytesIO
 
-def img_buffer_to_svg(figure):
-	"""Create an RLG image based on a figure.
-	
-	**Args:**
-		figure(plt.fig):	The figure to create a buffer from.
-	
-	**Returns:**
-		image(reportlab.platypus.Image):	RLG ready image.
-
-	"""
-
-	image = svg2rlg(img_buffer(figure))
-	return image
-
-def img_buffer(figure) -> BytesIO:
+def img_buffer_to_svg(figure) -> BytesIO:
 	"""Create an image bytes buffer using BytesIO from a given plt figure.
+	Create an RLG image based on a figure.
 	
 	**Args:**
 		figure(plt.fig):	The figure to create a buffer from.
 	
 	**Returns:**
-		figure_buffer(BytesIO):	The output buffer.
+		image:	The output buffer.
 
 	"""
 
 	with BytesIO() as figure_buffer:
 		figure.savefig(figure_buffer, format='svg')
 		figure_buffer.seek(0)
-	return figure_buffer
-
+		image = svg2rlg(figure_buffer)
+	return image
 
 def resize_img_aspect(img_buffer: BytesIO, width=1*cm, img_mode='RGB', size= (900, 900)) -> platImage:
 	"""Resize the given image buffer to the given width (height is based on width).
