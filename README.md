@@ -42,3 +42,13 @@ This project encompasses development of several finance automation, visualisatio
 * Review of fees
 * Investment gains/losses
 * Overview of investment strategy(ies)
+
+
+# TODOs:
+
+* TODO: Fix for ubuntu emulator with 'mnt' path logic
+* TODO: Find an alt. for tabula that doesn't require Java
+
+# Notes:
+
+* Java 8+ required for tabula.

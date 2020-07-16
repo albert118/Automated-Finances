@@ -1,0 +1,143 @@
+@import "//maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css";
+
+/* Logo  */
+
+.App-logo {
+  pointer-events: none;
+  height: 80px;
+  float: left;
+  margin-left: 1vh;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Section widget header */
+
+.section.hero-widget-header {
+  padding: 140px 0 0 0;
+  text-align: center;
+  color: black;
+  background-position: center;
+  height: 300px;
+}
+
+.App-header-box {
+  background-color: black;
+  border-radius: 4vh;
+  box-shadow: 0 0 10vh 0 gray;
+  box-sizing: border-box;
+  margin: 5px 280px 5px 280px;
+  max-height: 100%;
+  min-height: 12vh;
+}
+
+.App-header-text {
+  color: #fff;
+  font-weight: bold;
+}
+
+/* header hero items (widgets) */
+
+.App-header-hero-item {
+  box-sizing: border-box;
+  display: inline-block;
+  margin: auto;
+  width: 50%;
+  height: 100%;
+  text-align: center;
+}
+
+/* Section button flex - main content */
+
+.btn-flex {
+  display: flex;
+  justify-content: center;
+  align-content: center;
+  margin: 45px 15px 10px 15px;
+}
+
+.btn-inline-block {
+  display: inline-block;
+  width: 100%;
+  height: auto; /* maintain aspect ratio */
+}
+
+
+.btnRecipes > img, .btnPantry > img, .btnHealth > img, .btn
+ {
+  padding: 0;
+  margin: 0;
+  height: auto;
+  width: 100%;
+  border-radius: 45px;
+}
+
+.btn {
+  margin: 0 20px 0 20px;
+  width: 22%;
+  box-sizing: border-box;
+  box-shadow: 0 0 5vh 0 gray;
+  background: none;
+  background-size: cover;
+  border: none;
+}
+
+.btnRecipes {
+  grid-column: 1;
+}
+
+.btnPantry {
+  grid-column: 2;
+}
+
+.btnHealth {
+  grid-column: 3;
+}
+
+/* Section footer - miscal. */
+.footer-grid {
+  display: grid;
+  row-gap: 1vh;
+  column-gap: 2vh;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.footer-text {
+  font-size: calc(1vh * 0.8vmin);
+  text-align: center;
+  width: 100%;
+  position: fixed;
+  bottom: 0;
+}
+
+.footer-text a:hover {
+  text-decoration: none;
+}
+
+.authorMsg {
+  display: flex;
+  font-family: 'Times New Roman', Times, serif;
+}
+
+.footer-contact-banner {
+  display: flex;
+  font-family: sans-serif;
+}
+
+.legal {
+  display: flex;
+  font-weight: bold;
+}

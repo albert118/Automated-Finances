@@ -76,11 +76,24 @@ class Report():
         expenditure_graphs = self.account.display_expenditure_stats(figsize=figsize)
 
         self.flowables.append(income_graphs)
-        self.make_table(self.account.incomes.drop(labels=["File Source"], axis=1), body_style, "Income Transactions")
+        try:
+            self.make_table(self.account.incomes.drop(labels=["File Source"], axis=1), body_style, "Income Transactions")
+        except KeyError:
+            pass
+
         self.flowables.append(savings_graphs)
-        self.make_table(self.account.savings.drop(labels=["File Source"], axis=1), body_style, "Savings Transactions")
+
+        try:
+            self.make_table(self.account.savings.drop(labels=["File Source"], axis=1), body_style, "Savings Transactions")
+        except KeyError:
+            pass
+
         self.flowables.append(expenditure_graphs)
-        self.make_table(self.account.expenditures.drop(labels=["File Source"], axis=1), body_style, "Expenditures Transactions")
+        
+        try:
+            self.make_table(self.account.expenditures.drop(labels=["File Source"], axis=1), body_style, "Expenditures Transactions")
+        except KeyError:
+            pass
 
         self.report_val = self.build_report()
         self.write_pdf()
