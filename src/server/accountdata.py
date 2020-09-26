@@ -35,14 +35,14 @@ class TxData():
         """The transaction data class.
 
         **Args:**
-            value(float):			The transaction value, default 0.
-            date(pandas.Timestamp):	The time of the transaction. Default current date.
-            description(str):		A description of the transaction record.
-            catAndSub(str):			A string description of the subcategory. TODO: Make foreign key ref? e.g. `utilities:Electricity`
-            fileSource(os.path):	The filepath to the original file for the transaction.
+            value(float):           The transaction value, default 0.
+            date(pandas.Timestamp): The time of the transaction. Default current date.
+            description(str):       A description of the transaction record.
+            catAndSub(str):         A string description of the subcategory. TODO: Make foreign key ref? e.g. `utilities:Electricity`
+            fileSource(os.path):    The filepath to the original file for the transaction.
 
         **Kwargs:**
-            data(dict):				A dictionary of data to create the object from.
+            data(dict):             A dictionary of data to create the object from.
             TODO: implement.
 
         **Example:**
@@ -100,18 +100,18 @@ class AccountData():
     
     **Attributes:**
         incomes(dict): Each key accesses the respective data of the descriptor.
-            keys:	['primary_income', 'supplemental_income', 'investment_income', 'latest_week_income', 'aggregate_income']
+            keys:   ['primary_income', 'supplemental_income', 'investment_income', 'latest_week_income', 'aggregate_income']
             
             .. note:: TODO Adjust comments to match upcoming changes on incomes data structs.
             .. note:: TODO Adjust comments of savings and expenditures to update changes to ds'.
 
         savings(dict):
-            key(str):	Description of savings.
-            val(list):	elems(timestamp, float):	For described savings.
+            key(str):   Description of savings.
+            val(list):  elems(timestamp, float):    For described savings.
 
         expenditures(dict):
-            key(str): 	Category as defined in local.env and fetched by __init__.
-            val(list):	elems(timestamp, float, str):	Time of tx, val of tx, descrip. of tx.
+            key(str):   Category as defined in local.env and fetched by __init__.
+            val(list):  elems(timestamp, float, str):   Time of tx, val of tx, descrip. of tx.
 
     **Methods:**
         
@@ -146,11 +146,11 @@ class AccountData():
     def __init__(self, **kwargs):
         """Track several user finance details and accounts.
 
-        **Kwargs:** 	
+        **Kwargs:**     
             *optional kwarg overrides to add these for testing, etc.*
 
-            account_frame(pandas.DataFrame): 	Banking data input.
-            payslip_frame(pandas.DataFrame):	Payslip data input.
+            account_frame(pandas.DataFrame):    Banking data input.
+            payslip_frame(pandas.DataFrame):    Payslip data input.
 
         **Example:**
             >>> import pandas as pd
@@ -170,20 +170,20 @@ class AccountData():
         
         # TODO : dynamic unpacking of listed vars for categories
         self.INCOMES = {
-            'primary_income': 		env.list("primary_income"), 
-            'supplemental_income': 	env.list("supplemental_income"), 
-            'investment_income': 	env.list("investment_income"),
+            'primary_income':       env.list("primary_income"), 
+            'supplemental_income':  env.list("supplemental_income"), 
+            'investment_income':    env.list("investment_income"),
         }
 
         self.EXPENDITURES = { 
-            'utilities': 			env.list("UTILITIES"),
-            'health': 				env.list("HEALTH"),
-            'eating_out': 			env.list("EATING_OUT"),
-            'coffee': 				env.list("COFFEE"),
-            'subscriptions':		env.list("SUBSCRIPTIONS"),
-            'groceries': 			env.list("GROCERIES"),
-            'shopping':  			env.list("SHOPPING"),
-            'enterainment': 		env.list("ENTERTAINMENT"),
+            'utilities':            env.list("UTILITIES"),
+            'health':               env.list("HEALTH"),
+            'eating_out':           env.list("EATING_OUT"),
+            'coffee':               env.list("COFFEE"),
+            'subscriptions':        env.list("SUBSCRIPTIONS"),
+            'groceries':            env.list("GROCERIES"),
+            'shopping':             env.list("SHOPPING"),
+            'enterainment':         env.list("ENTERTAINMENT"),
         }
 
         self.SAVINGS_IDS = env.list("SAVINGS")
@@ -208,19 +208,19 @@ class AccountData():
 
     ############################################################################
     # Data Ingest
-    # 	Factories for sifting raw data and returning tx objects to the class.
+    #   Factories for sifting raw data and returning tx objects to the class.
     ############################################################################
     
     def getBankData(self) -> pd.DataFrame:
         """Retrieve the latest bank data CSV scrape.
         
         **Returns:**
-            account_dataframe(pd.DataFrame):	A dataframe representing the account data parsed.
+            account_dataframe(pd.DataFrame):    A dataframe representing the account data parsed.
         """
         
         f_dir  = os.path.join(self.BASE_DIR, self.SUB_FOLDERS[0])
         # TODO: This function assumes that there is a CSV from the date that we have run.
-        # 	this then relies on being called at the correct time and is an easy way to 
+        #   this then relies on being called at the correct time and is an easy way to 
         #   create errors. FIX IT
         fn_str = datetime.now().strftime("%d-%m-%Y")+".csv" 
         file   = os.path.join(f_dir, fn_str)
@@ -248,16 +248,16 @@ class AccountData():
         tx objects.
 
         **Args:**
-            data(pd.DataFrame):	The data to parse for savings information.
+            data(pd.DataFrame): The data to parse for savings information.
 
-            data(dict):			An alternate data structure. Note: This will\
+            data(dict):         An alternate data structure. Note: This will\
                                 consume further memory as a local copy will \
                                 be made to convert the data to pd.DataFrame type.
 
         **Raises:**
-            AttributeError:		If the datatype of of data is incorrect an attribute\
+            AttributeError:     If the datatype of of data is incorrect an attribute\
                                 error will be raised.\
-            ValueError:			If an invalid typecast arises.
+            ValueError:         If an invalid typecast arises.
         """
 
         expenditures_list = []
@@ -314,15 +314,15 @@ class AccountData():
         tx val, date and description to create a list of tx objects (dicts).
 
         **Args:**
-            data(pd.DataFrame):	The data to parse for savings information.
+            data(pd.DataFrame): The data to parse for savings information.
 
-            data(dict):			An alternate data structure. Note: This will\
+            data(dict):         An alternate data structure. Note: This will\
                                 consume further memory as a local copy will \
                                 be made to convert the data to pd.DataFrame type.\
         **Raises:**
-            AttributeError:		If the datatype of of data is incorrect an attribute\
+            AttributeError:     If the datatype of of data is incorrect an attribute\
                                 error will be raised.\
-            ValueError:			If an invalid typecast arises.
+            ValueError:         If an invalid typecast arises.
         """
 
         savings_list = []
@@ -368,16 +368,16 @@ class AccountData():
         .. warning:: This is a culminative process! Data going in is appended to existing data.
         
         **Args:**
-            data(pd.DataFrame):	The data to parse for savings information.
+            data(pd.DataFrame): The data to parse for savings information.
 
-            data(dict):			An alternate data structure. Note: This will\
+            data(dict):         An alternate data structure. Note: This will\
                                 consume further memory as a local copy will \
                                 be made to convert the data to pd.DataFrame type.\
 
         **Raises:**
-            AttributeError:		If the datatype of of data is incorrect an attribute\
+            AttributeError:     If the datatype of of data is incorrect an attribute\
                                 error will be raised.\
-            ValueError:			If an invalid typecast arises.
+            ValueError:         If an invalid typecast arises.
         """
 
         incomes_list = []
@@ -433,7 +433,7 @@ class AccountData():
         """ Display some visualisations and print outs of the income data.
     
         **Args:**
-            figsize(int tuple):	The size of the figure to generate. Default is (10, 10).	
+            figsize(int tuple): The size of the figure to generate. Default is (10, 10).    
         **Returns:**
             images.image_buffer_to_svg(PIL.image): An SVG PIL image.
         """
@@ -448,10 +448,9 @@ class AccountData():
         graphRad_int = 1.3
         charLim_int  = 15
 
-        labelsDes_list 	= self.incomes.Description.values.tolist()
+        labelsDes_list  = self.incomes.Description.values.tolist()
         labelsDes_list  = [label[:charLim_int] for label in labelsDes_list]
-        labelsCat_list 	= self.incomes.CatAndSub.values.tolist()
-        # dates_list		= self.incomes.Date.values.tolist()
+        labelsCat_list  = self.incomes.CatAndSub.values.tolist()
         value_list      = self.incomes.Value.values.tolist()
         labelsCat_dict  = {'unknown expenditures': 0} # tracks total expenditures per category
 
@@ -495,11 +494,11 @@ class AccountData():
         jbAggregate_dataframe, jbIncomeLatestWeek_dataframe  = getPayslips(self.BASE_DIR, self.SUB_FOLDERS[1])
 
         # labels
-        hourlyLabels_list        = jbIncomeLatestWeek_dataframe["Description"].values.tolist()
+        # hourlyLabels_list        = jbIncomeLatestWeek_dataframe["Description"].values.tolist()
         hourWithCommsLabels_list = jbIncomeLatestWeek_dataframe["Description_Other"].values.tolist()
 
         # data
-        hourlyData_list        = np.array(jbIncomeLatestWeek_dataframe["Value"].values, dtype=np.float32).tolist()
+        # hourlyData_list        = np.array(jbIncomeLatestWeek_dataframe["Value"].values, dtype=np.float32).tolist()
         hourWithCommsData_list = np.array(jbIncomeLatestWeek_dataframe["Value_Other"].values, dtype=np.float32).tolist()
         incomeTaxData_list     = [np.array(jbAggregate_dataframe["Tax"].values, dtype=np.float32)[0], np.array(jbAggregate_dataframe["NET INCOME"].values, dtype=np.float32)[0]]
         hourWithCommsLabels_list.append("Tax (PAYG)")
@@ -522,7 +521,7 @@ class AccountData():
         .. note:: TODO Integrate options for REST Super.
         
         **Kwargs:**
-            figsize(int tuple):	The size of the figure to generate. Default is (10, 10).
+            figsize(int tuple): The size of the figure to generate. Default is (10, 10).
         
         **Returns:**
             images.image_buffer_to_svg(PIL.image): An SVG PIL image.
@@ -531,23 +530,26 @@ class AccountData():
         fig = plt.figure(figsize=figsize)
         # Display savings across accounts, bar per acc., i.e. bar figure
         # Trendline of account, with short range projection (1 month)
-        #	plot 1 month predic. line
-        #	plot 1 month best-case (optimal saving)
+        #   plot 1 month predic. line
+        #   plot 1 month best-case (optimal saving)
         
         # set the display stack of two charts with grid_spec
 
         # setup the grids for holding our plots, attach them to the same figure
         n_charts_top = len(self.savings)
         outer_grid_spec = gridspec.GridSpec(2, 1, wspace=0.2, hspace=0.2)
-        disp_top 		= gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer_grid_spec[0],
+        disp_top        = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer_grid_spec[0],
                     wspace=0.1, hspace=0.1)
-        disp_bottom 	= gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer_grid_spec[1],
+        disp_bottom     = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer_grid_spec[1],
                     wspace=0.1, hspace=0.1)
 
-        # labelsDes_list 	= self.savings.Description.values.tolist()
-        # labelsCat_list 	= self.savings.CatAndSub.values.tolist()
-        dates_list		= self.savings.Date.values.tolist()
-        value_list      = self.savings.Value.values.tolist()
+        # labelsDes_list    = self.savings.Description.values.tolist()
+        # labelsCat_list    = self.savings.CatAndSub.values.tolist()
+        try:
+            dates_list = self.savings.Date.values.tolist()
+            value_list = self.savings.Value.values.tolist()
+        except AttributeError:
+            return
 
         dates_list.reverse()
         value_list.reverse()
@@ -568,7 +570,7 @@ class AccountData():
         plt.setp(culmChange_ax.xaxis.get_majorticklabels(), rotation=45)
         plt.xticks(fontsize=8)
 
-        barChartSavings_ax	= plt.Subplot(fig, disp_bottom[0])
+        barChartSavings_ax  = plt.Subplot(fig, disp_bottom[0])
         graphing.Graphing_BarChart(dates_list, value_list, barChartSavings_ax)
         barChartSavings_ax.set_ylabel('Savings $')
         barChartSavings_ax.set_xlabel('Date and Description (dd/mm/yyy)')
@@ -582,7 +584,7 @@ class AccountData():
         """ Display some visualisations and print outs of the income data.
 
         **Kwargs:**
-            figsize(int tuple):	The size of the figure to generate. Default is (10, 10).
+            figsize(int tuple): The size of the figure to generate. Default is (10, 10).
         
         **Returns:**
             images.image_buffer_to_svg(PIL.image): An SVG PIL image.
@@ -599,8 +601,8 @@ class AccountData():
         colours      = [CMAP(j) for j in range(1,10)]
 
         labelsCat_dict  = {'unknown expenditures': 0} # tracks total expenditures per category
-        labelsCat_list 	= self.expenditures.CatAndSub.values
-        dates_list		= self.expenditures.Date.values
+        labelsCat_list  = self.expenditures.CatAndSub.values
+        # dates_list        = self.expenditures.Date.values
         value_list      = self.expenditures.Value.values
 
         for i in range(len(self.expenditures)):

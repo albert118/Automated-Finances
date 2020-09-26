@@ -153,16 +153,16 @@ def Payslips_getPayslips(basedir: str, subfolder: str, true_col_header_index=5, 
                                 string_val += ' ' + vals.pop(j).replace('*', '').lower().capitalize()
                                 length -= 1
                                 
-                        if len(string_val) is not 0: 
+                        if len(string_val) != 0: 
                             # apply final string formating
                             string_val = string_val.strip()
 
                         if len(vals) > 2:
                             # we dont know what is there then, RuntimeError and hope for the best
                             raise RuntimeError
-                        elif len(vals) is 0:
+                        elif len(vals) == 0:
                             vals =tuple([np.nan, string_val])
-                        elif len(string_val) is 0:
+                        elif len(string_val) == 0:
                             vals = tuple(vals)
                         else:
                             vals = tuple(vals.append(string_val))
