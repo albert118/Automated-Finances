@@ -1,0 +1,13 @@
+/* Coolors Exported Palette - https://coolors.co/f8f9fa-67e1f4-5f85ab-4a79a8-114c55-001f3d-212529 */
+
+/* CSV */
+f8f9fa,67e1f4,5f85ab,4a79a8,114c55,001f3d,212529
+
+/* Array */
+["f8f9fa","67e1f4","5f85ab","4a79a8","114c55","001f3d","212529"]
+
+/* Object */
+{"Cultured":"f8f9fa","Sky Blue Crayola":"67e1f4","Glaucous":"5f85ab","Blue Yonder":"4a79a8","Midnight Green Eagle Green":"114c55","Oxford Blue":"001f3d","Charleston Green":"212529"}
+
+/* Extended Array */
+[{"name":"Cultured","hex":"f8f9fa","rgb":[248,249,250],"cmyk":[1,0,0,2],"hsb":[210,1,98],"hsl":[210,17,98],"lab":[98,0,-1]},{"name":"Sky Blue Crayola","hex":"67e1f4","rgb":[103,225,244],"cmyk":[58,8,0,4],"hsb":[188,58,96],"hsl":[188,87,68],"lab":[84,-29,-20]},{"name":"Glaucous","hex":"5f85ab","rgb":[95,133,171],"cmyk":[44,22,0,33],"hsb":[210,44,67],"hsl":[210,31,52],"lab":[54,-3,-24]},{"name":"Blue Yonder","hex":"4a79a8","rgb":[74,121,168],"cmyk":[56,28,0,34],"hsb":[210,56,66],"hsl":[210,39,47],"lab":[49,-2,-30]},{"name":"Midnight Green Eagle Green","hex":"114c55","rgb":[17,76,85],"cmyk":[80,11,0,67],"hsb":[188,80,33],"hsl":[188,67,20],"lab":[29,-15,-11]},{"name":"Oxford Blue","hex":"001f3d","rgb":[0,31,61],"cmyk":[100,49,0,76],"hsb":[210,100,24],"hsl":[210,100,12],"lab":[11,2,-22]},{"name":"Charleston Green","hex":"212529","rgb":[33,37,41],"cmyk":[20,10,0,84],"hsb":[210,20,16],"hsl":[210,11,15],"lab":[14,-1,-3]}]
