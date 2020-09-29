@@ -1,4 +1,5 @@
 # Automated-Finances
+
 This project encompasses development of several finance automation, visualisation and management tools. Designed for personal (single user) use. Currently this supports:
 * scraping NetBank data and preprocessing (then importing) data from NetBank as well as [ADP](https://developers.adp.com/metadata/collections/all/learn)(payroll service),
 * calculating several useful statistics from the data,
@@ -17,9 +18,23 @@ This project encompasses development of several finance automation, visualisatio
 * last received,
 * hourly and commission based stats
 
-### Events and Calendar Integrations
+# Planned Update
 
-### Superannuaton Interation
+Given my recent foray into Javascript, React and making it work with Django, I decided on a revamp to bring everything together. Since this project was always a report generating tool I planned to run permanently and have sent to me, having it run as webservice on a server makes sense.
+
+These are the mock ups I've developed so far, and what is planned for the next update.
+
+![Income View page #1](https://github.com/albert118/Automated-Finances/tree/master/designSpecs/viewMockUps/Incomes%20(view)%20mock%20up/1.jpg)
+
+![Income View page #2](https://github.com/albert118/Automated-Finances/tree/master/designSpecs/viewMockUps/Incomes%20(view)%20mock%20up/2.jpg)
+
+![Income View page #3](https://github.com/albert118/Automated-Finances/tree/master/designSpecs/viewMockUps/Incomes%20(view)%20mock%20up/4.jpg)
+
+![Budget View page #1](https://github.com/albert118/Automated-Finances/tree/master/designSpecs/viewMockUps/Incomes%20(view)%20mock%20up/1.jpg)
+
+![Budget View page #2](https://github.com/albert118/Automated-Finances/tree/master/designSpecs/viewMockUps/Incomes%20(view)%20mock%20up/2.jpg)
+
+![Budget View page #3](https://github.com/albert118/Automated-Finances/tree/master/designSpecs/viewMockUps/Incomes%20(view)%20mock%20up/3.jpg)
 
 
 ## Planned features will include:
