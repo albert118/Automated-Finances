@@ -24,17 +24,17 @@ Given my recent foray into Javascript, React and making it work with Django, I d
 
 These are the mock ups I've developed so far, and what is planned for the next update.
 
-![Income View page #1](https://github.com/albert118/Automated-Finances/tree/master/designSpecs/viewMockUps/Incomes%20(view)%20mock%20up/1.jpg)
+![Income View page #1](designSpecs/viewMockUps/Incomes%20(view)%20mock%20up/1.jpg)
 
-![Income View page #2](https://github.com/albert118/Automated-Finances/tree/master/designSpecs/viewMockUps/Incomes%20(view)%20mock%20up/2.jpg)
+![Income View page #2](designSpecs/viewMockUps/Incomes%20(view)%20mock%20up/2.jpg)
 
-![Income View page #3](https://github.com/albert118/Automated-Finances/tree/master/designSpecs/viewMockUps/Incomes%20(view)%20mock%20up/4.jpg)
+![Income View page #3](designSpecs/viewMockUps/Incomes%20(view)%20mock%20up/4.jpg)
 
-![Budget View page #1](https://github.com/albert118/Automated-Finances/tree/master/designSpecs/viewMockUps/Incomes%20(view)%20mock%20up/1.jpg)
+![Budget View page #1](designSpecs/viewMockUps/Budgets%20(view)%20mock%20up/1.jpg)
 
-![Budget View page #2](https://github.com/albert118/Automated-Finances/tree/master/designSpecs/viewMockUps/Incomes%20(view)%20mock%20up/2.jpg)
+![Budget View page #2](designSpecs/viewMockUps/Budgets%20(view)%20mock%20up/2.jpg)
 
-![Budget View page #3](https://github.com/albert118/Automated-Finances/tree/master/designSpecs/viewMockUps/Incomes%20(view)%20mock%20up/3.jpg)
+![Budget View page #3](designSpecs/viewMockUps/Budgets%20(view)%20mock%20up/3.jpg)
 
 
 ## Planned features will include:
