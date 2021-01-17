@@ -1,6 +1,13 @@
 
-URL or filepath:
+# Issue Information
 
+  - URL or filepath:
+  - Version(s):
+  - Platform:
+  - Subsystem:
+  - Browser (if relavent):
+  
+  
 ## Expected Behavior
 
 
@@ -17,6 +24,4 @@ URL or filepath:
 
 ## Specifications
 
-  - Version:
-  - Platform:
-  - Subsystem:
+  
