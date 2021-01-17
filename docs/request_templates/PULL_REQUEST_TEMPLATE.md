@@ -31,12 +31,23 @@ IMPORTANT: Please review the [CONTRIBUTING.md](../CONTRIBUTING.md) file for deta
 
 **PLEASE REMOVE ALL LINES ABOVE THIS TEMPLATE BEFORE SUBMITTING**
 
-* [] Tested UI changes for Webkit and Android (mobile)
-* [] Tested Legacy UI changes for IE 11.
-* [] Link a related issue (for fixes)
-* [] Completed successful NPM build.
-* [] Completed successful visual studio build.
+# Checklist
+<!--- Check off each of these reminders! Put an `x` in all the boxes that apply: -->
+- [ ] Tested UI changes for Webkit and Android (mobile)
+- [ ] Tested Legacy UI changes for IE 11.
+- [ ] Link a related issue (for fixes)
+- [ ] Completed successful NPM build.
+- [ ] Completed successful visual studio build.
+- [ ] I have read the **CONTRIBUTING** document.
+- [ ] Update the documentation accordingly.
+- [ ] Add unit tests.
 
-## Description of Changes
+# Types of Changes
+<!--- What types of changes does your code introduce? Put an `x` in all the boxes that apply: -->
+- [ ] Bug fix (non-breaking change which fixes an issue).
+- [ ] New feature (non-breaking change which adds functionality).
+- [ ] Hotfix (quick data level duct-tape fix).
+- [ ] Breaking change (fix or feature that would cause existing functionality to change).
+- [ ] Major doc's update (You felt productive todat didn't you?).
 
-## Data Testing Sources List
+# Data Testing Sources List
