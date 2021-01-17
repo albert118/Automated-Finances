@@ -114,6 +114,7 @@ Include/
 Scripts/
 tcl/
 pip*
+pyvenv.cfg
 
 # Spyder project settings
 .spyderproject
@@ -140,3 +141,6 @@ dmypy.json
 todo.*
 
 design specs/*
+
+# VS Code
+.vscode/
